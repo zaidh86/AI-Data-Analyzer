@@ -1,23 +1,24 @@
 import os
-
 from openai import OpenAI
 
 
 def _get_api_key():
+    # 1. Try environment variable (.env for local)
     api_key = os.getenv("OPENAI_API_KEY")
     if api_key:
         return api_key
 
+    # 2. Try Streamlit secrets (for deployment)
     try:
         import streamlit as st
-
         return st.secrets.get("OPENAI_API_KEY")
     except Exception:
         return None
 
 
 def _build_prompt(df):
-    summary = df.describe(include="all").transpose().to_string()
+    # Limit size to prevent token explosion
+    summary = df.describe(include="all").transpose().head(20).to_string()
     columns = df.columns.tolist()
     missing = df.isna().sum().to_string()
     dtypes = df.dtypes.to_string()
@@ -58,10 +59,12 @@ Keep the response clear, professional, and easy to understand for a non-technica
 
 def get_insights(df):
     api_key = _get_api_key()
+
     if not api_key:
         return (
-            "OpenAI API key not found. Set OPENAI_API_KEY as an environment variable "
-            "or add it to Streamlit secrets before generating AI insights."
+            "⚠️ OpenAI API key not found.\n\n"
+            "Please set OPENAI_API_KEY in your environment variables "
+            "or add it to Streamlit secrets."
         )
 
     try:
@@ -72,9 +75,10 @@ def get_insights(df):
             model=model,
             messages=[{"role": "user", "content": _build_prompt(df)}],
             temperature=0.3,
+            max_tokens=500  # prevents overly long/costly responses
         )
 
         return response.choices[0].message.content
 
-    except Exception as exc:
-        return f"Error generating insights: {exc}"
+    except Exception:
+        return "❌ Error generating insights. Please try again."
