@@ -76,7 +76,7 @@ def get_insights(df):
             model=model,
             messages=[{"role": "user", "content": _build_prompt(df)}],
             temperature=0.3,
-            max_tokens=500  # prevents overly long/costly responses
+            max_tokens=5000  # prevents overly long/costly responses
         )
 
         return response.choices[0].message.content
