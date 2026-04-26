@@ -1,85 +1,73 @@
-import os
-from openai import OpenAI
-from dotenv import load_dotenv
-load_dotenv()
-
-def _get_api_key():
-    # 1. Try environment variable (.env for local)
-    api_key = os.getenv("OPENAI_API_KEY")
-    if api_key:
-        return api_key
-
-    # 2. Try Streamlit secrets (for deployment)
-    try:
-        import streamlit as st
-        return st.secrets.get("OPENAI_API_KEY")
-    except Exception:
-        return None
-
-
-def _build_prompt(df):
-    # Limit size to prevent token explosion
-    summary = df.describe(include="all").transpose().head(20).to_string()
-    columns = df.columns.tolist()
-    missing = df.isna().sum().to_string()
-    dtypes = df.dtypes.to_string()
-    sample_rows = df.head(5).to_string(index=False)
-
-    return f"""
-You are an expert data analyst.
-
-Analyze the dataset based on the following information:
-
-COLUMNS:
-{columns}
-
-DATA TYPES:
-{dtypes}
-
-STATISTICS:
-{summary}
-
-MISSING VALUES:
-{missing}
-
-SAMPLE ROWS:
-{sample_rows}
-
-Provide a structured response with:
-
-1. Key Trends
-2. Notable Patterns
-3. Outliers or Anomalies
-4. Data Quality Issues
-5. Business Insights
-6. Actionable Recommendations
-
-Keep the response clear, professional, and easy to understand for a non-technical user.
-"""
+import pandas as pd
 
 
 def get_insights(df):
-    api_key = _get_api_key()
+    insights = []
 
-    if not api_key:
-        return (
-            "⚠️ OpenAI API key not found.\n\n"
-            "Please set OPENAI_API_KEY in your environment variables "
-            "or add it to Streamlit secrets."
-        )
+    # 📊 Basic Overview
+    insights.append("📊 DATASET OVERVIEW")
+    insights.append(f"- Rows: {df.shape[0]}")
+    insights.append(f"- Columns: {df.shape[1]}")
 
-    try:
-        client = OpenAI(api_key=api_key)
-        model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+    # 📂 Column Types
+    insights.append("\n📂 COLUMN TYPES")
+    for col in df.columns:
+        insights.append(f"- {col}: {df[col].dtype}")
 
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": _build_prompt(df)}],
-            temperature=0.3,
-            max_tokens=5000  # prevents overly long/costly responses
-        )
+    # ⚠️ Missing Values
+    missing = df.isna().sum()
+    if missing.sum() > 0:
+        insights.append("\n⚠️ MISSING VALUES DETECTED")
+        for col, val in missing.items():
+            if val > 0:
+                insights.append(f"- {col}: {val} missing ({(val/len(df)*100):.2f}%)")
+    else:
+        insights.append("\n✅ No missing values found")
 
-        return response.choices[0].message.content
+    # 📈 Numeric Analysis
+    numeric = df.select_dtypes(include='number')
 
-    except Exception as e:
-        return f"Error: {e}"
+    if not numeric.empty:
+        insights.append("\n📈 NUMERIC INSIGHTS")
+
+        # Mean values
+        means = numeric.mean()
+        for col in means.index:
+            insights.append(f"- Avg {col}: {means[col]:.2f}")
+
+        # Highest & lowest values
+        for col in numeric.columns:
+            insights.append(f"\n🔹 {col}")
+            insights.append(f"  - Max: {df[col].max()}")
+            insights.append(f"  - Min: {df[col].min()}")
+
+    # 🔥 Correlation Analysis
+    if len(numeric.columns) > 1:
+        corr = numeric.corr()
+
+        insights.append("\n🔥 STRONG CORRELATIONS (> 0.7)")
+
+        found = False
+        for i in range(len(corr.columns)):
+            for j in range(i + 1, len(corr.columns)):
+                value = corr.iloc[i, j]
+                if abs(value) > 0.7:
+                    insights.append(
+                        f"- {corr.columns[i]} & {corr.columns[j]}: {value:.2f}"
+                    )
+                    found = True
+
+        if not found:
+            insights.append("- No strong correlations found")
+
+    # 🚨 Simple Business Insights
+    insights.append("\n💡 BUSINESS INSIGHTS")
+
+    if not numeric.empty:
+        top_col = numeric.mean().idxmax()
+        insights.append(f"- {top_col} has the highest average values")
+
+    insights.append("- Consider focusing on high-performing metrics")
+    insights.append("- Check columns with missing data for data quality issues")
+
+    return "\n".join(insights)
