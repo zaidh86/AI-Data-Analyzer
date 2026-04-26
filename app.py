@@ -52,12 +52,20 @@ if uploaded_file is None:
 try:
     df = load_csv(uploaded_file)
 except Exception as exc:
-    st.error(f"Invalid CSV file: {exc}")
+    st.error("Invalid CSV file. Please upload a valid file.")
     st.stop()
+
+if "insights" in st.session_state:
+    del st.session_state["insights"]
 
 if df.empty:
     st.warning("The uploaded file is empty.")
     st.stop()
+
+if df.shape[0] > 100000:
+    df = df.sample(100000)
+    st.warning("Dataset too large. Showing a sample of 100,000 rows.")
+
 
 numeric_columns = df.select_dtypes(include="number").columns.tolist()
 
