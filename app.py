@@ -153,8 +153,8 @@ if "insights" in st.session_state:
 
     report = generate_report(df, st.session_state.insights)
     st.download_button(
-        label=f"{INBOX} Download Report",
-        data=report,
-        file_name="data_analysis_report.txt",
-        mime="text/plain",
+    label="📄 Download PDF Report",
+    data=report,
+    file_name="data_analysis_report.pdf",
+    mime="application/pdf"
     )
