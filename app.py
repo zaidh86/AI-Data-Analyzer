@@ -16,9 +16,21 @@ st.sidebar.header("Upload & Options")
 uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
 
 if uploaded_file:
-    df = pd.read_csv(uploaded_file)
 
-    # Layout: Preview + Stats
+    # Safe CSV loading
+    try:
+        df = pd.read_csv(uploaded_file)
+        st.success("File uploaded successfully!")
+    except Exception:
+        st.error("Invalid file. Please upload a proper CSV.")
+        st.stop()
+
+    # Empty file check
+    if df.empty:
+        st.warning("The uploaded file is empty.")
+        st.stop()
+
+    # Layout
     col1, col2 = st.columns(2)
 
     with col1:
@@ -37,7 +49,7 @@ if uploaded_file:
 
     st.divider()
 
-    # Visualization Section
+    # Visualization
     st.subheader("📈 Interactive Visualization")
 
     numeric_columns = df.select_dtypes(include='number').columns
@@ -59,6 +71,11 @@ if uploaded_file:
         elif chart_type == "Scatter Plot":
             x_axis = st.selectbox("X-axis", numeric_columns)
             y_axis = st.selectbox("Y-axis", numeric_columns)
+
+            if x_axis == y_axis:
+                st.warning("X and Y axis must be different.")
+                st.stop()
+
             fig = px.scatter(df, x=x_axis, y=y_axis)
 
         st.plotly_chart(fig, use_container_width=True)
@@ -91,21 +108,20 @@ if uploaded_file:
     # AI Insights
     st.subheader("🤖 AI Insights")
 
-if st.button("Generate AI Insights"):
-    with st.spinner("Analyzing data..."):
-        insights = get_insights(df)
+    if st.button("Generate AI Insights"):
+        with st.spinner("Analyzing data..."):
+            insights = get_insights(df)
 
-    st.write(insights)
+        st.write(insights)
 
-    # Generate report
-    report = generate_report(df, insights)
+        report = generate_report(df, insights)
 
-    st.download_button(
-        label="📥 Download Report",
-        data=report,
-        file_name="data_analysis_report.txt",
-        mime="text/plain"
-    )
+        st.download_button(
+            label="📥 Download Report",
+            data=report,
+            file_name="data_analysis_report.txt",
+            mime="text/plain"
+        )
 
 else:
     st.info("👈 Upload a CSV file from the sidebar to begin.")
