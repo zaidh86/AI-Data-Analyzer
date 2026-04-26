@@ -81,5 +81,5 @@ def get_insights(df):
 
         return response.choices[0].message.content
 
-    except Exception:
-        return "❌ Error generating insights. Please try again."
+    except Exception as e:
+        return f"Error: {e}"
