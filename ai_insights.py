@@ -1,6 +1,74 @@
 import pandas as pd
 import numpy as np
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
+
+# 🔁 Toggle this (IMPORTANT)
+USE_OPENAI = False   # ← change to True when you add billing
+
+# =========================
+# 🤖 OPENAI VERSION
+# =========================
+def _get_openai_insights(df):
+    from openai import OpenAI
+
+    api_key = os.getenv("OPENAI_API_KEY")
+
+    if not api_key:
+        return "⚠️ OpenAI API key not found."
+
+    client = OpenAI(api_key=api_key)
+
+    summary = df.describe(include="all").transpose().head(20).to_string()
+    columns = df.columns.tolist()
+    missing = df.isna().sum().to_string()
+    sample_rows = df.head(5).to_string(index=False)
+
+    prompt = f"""
+You are an expert data analyst.
+
+Analyze this dataset:
+
+COLUMNS:
+{columns}
+
+STATISTICS:
+{summary}
+
+MISSING VALUES:
+{missing}
+
+SAMPLE DATA:
+{sample_rows}
+
+Provide:
+1. Key Trends
+2. Patterns
+3. Outliers
+4. Business Insights
+5. Recommendations
+
+Keep it simple and professional.
+"""
+
+    try:
+        response = client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=500
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        return f"❌ OpenAI Error: {e}"
+    
+# =========================
+# 🧠 FREE LOCAL VERSION
+# =========================
 
 def get_insights(df):
     insights = []
@@ -40,6 +108,7 @@ def get_insights(df):
         for col in numeric.columns:
             mean = df[col].mean()
             std = df[col].std()
+
             insights.append(f"\n🔹 {col}")
             insights.append(f"  - Average: {mean:.2f}")
             insights.append(f"  - Standard Deviation: {std:.2f}")
@@ -75,28 +144,28 @@ def get_insights(df):
         if not found:
             insights.append("- No strong relationships found between variables")
 
-    # 📅 Time-based Trends
-    date_cols = df.select_dtypes(include=['datetime64', 'object'])
+    # 📅 Safer Time Detection (only tries real candidates)
+    insights.append("\n📅 TIME-BASED ANALYSIS")
 
-    for col in date_cols.columns:
+    for col in df.columns:
         try:
             temp = pd.to_datetime(df[col], errors='coerce')
-            if temp.notna().sum() > 0:
+            if temp.notna().sum() > len(df) * 0.5:  # only if majority valid
                 df_sorted = df.copy()
                 df_sorted[col] = temp
                 df_sorted = df_sorted.sort_values(by=col)
 
-                insights.append(f"\n📅 TIME-BASED ANALYSIS ({col})")
-
                 if not numeric.empty:
                     for num_col in numeric.columns:
                         trend = df_sorted[num_col].iloc[-1] - df_sorted[num_col].iloc[0]
+
                         if trend > 0:
                             insights.append(f"- {num_col} shows an upward trend over time 📈")
                         elif trend < 0:
                             insights.append(f"- {num_col} shows a downward trend 📉")
                         else:
                             insights.append(f"- {num_col} remains relatively stable")
+
                 break
         except:
             continue
