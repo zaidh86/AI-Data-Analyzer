@@ -1,18 +1,29 @@
 import os
+
 from openai import OpenAI
 
-# Load API key securely
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def get_insights(df):
+def _get_api_key():
+    api_key = os.getenv("OPENAI_API_KEY")
+    if api_key:
+        return api_key
+
     try:
-        # Data summary
-        summary = df.describe().to_string()
-        columns = df.columns.tolist()
-        missing = df.isnull().sum().to_string()
-        dtypes = df.dtypes.to_string()
+        import streamlit as st
 
-        prompt = f"""
+        return st.secrets.get("OPENAI_API_KEY")
+    except Exception:
+        return None
+
+
+def _build_prompt(df):
+    summary = df.describe(include="all").transpose().to_string()
+    columns = df.columns.tolist()
+    missing = df.isna().sum().to_string()
+    dtypes = df.dtypes.to_string()
+    sample_rows = df.head(5).to_string(index=False)
+
+    return f"""
 You are an expert data analyst.
 
 Analyze the dataset based on the following information:
@@ -29,6 +40,9 @@ STATISTICS:
 MISSING VALUES:
 {missing}
 
+SAMPLE ROWS:
+{sample_rows}
+
 Provide a structured response with:
 
 1. Key Trends
@@ -38,15 +52,29 @@ Provide a structured response with:
 5. Business Insights
 6. Actionable Recommendations
 
-Keep the response clear, professional, and easy to understand.
+Keep the response clear, professional, and easy to understand for a non-technical user.
 """
 
+
+def get_insights(df):
+    api_key = _get_api_key()
+    if not api_key:
+        return (
+            "OpenAI API key not found. Set OPENAI_API_KEY as an environment variable "
+            "or add it to Streamlit secrets before generating AI insights."
+        )
+
+    try:
+        client = OpenAI(api_key=api_key)
+        model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+
         response = client.chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=[{"role": "user", "content": prompt}]
+            model=model,
+            messages=[{"role": "user", "content": _build_prompt(df)}],
+            temperature=0.3,
         )
 
         return response.choices[0].message.content
 
-    except Exception as e:
-        return f"Error generating insights: {str(e)}"
+    except Exception as exc:
+        return f"Error generating insights: {exc}"

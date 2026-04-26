@@ -1,19 +1,24 @@
 def generate_report(df, insights):
-    report = ""
+    missing_values = df.isna().sum()
 
-    report += "AI DATA ANALYSIS REPORT\n"
-    report += "=" * 50 + "\n\n"
+    report = []
+    report.append("AI DATA ANALYSIS REPORT")
+    report.append("=" * 50)
+    report.append("")
+    report.append(f"Rows: {df.shape[0]}")
+    report.append(f"Columns: {df.shape[1]}")
+    report.append(f"Missing cells: {int(missing_values.sum())}")
+    report.append("")
+    report.append("DATA PREVIEW:")
+    report.append(df.head(10).to_string())
+    report.append("")
+    report.append("STATISTICS:")
+    report.append(df.describe(include="all").transpose().to_string())
+    report.append("")
+    report.append("MISSING VALUES:")
+    report.append(missing_values.to_string())
+    report.append("")
+    report.append("AI INSIGHTS:")
+    report.append(insights)
 
-    report += "DATA PREVIEW:\n"
-    report += df.head().to_string() + "\n\n"
-
-    report += "STATISTICS:\n"
-    report += df.describe().to_string() + "\n\n"
-
-    report += "MISSING VALUES:\n"
-    report += df.isnull().sum().to_string() + "\n\n"
-
-    report += "AI INSIGHTS:\n"
-    report += insights + "\n"
-
-    return report
+    return "\n".join(report)
