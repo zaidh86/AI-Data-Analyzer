@@ -1,6 +1,7 @@
 import os
 from openai import OpenAI
-
+from dotenv import load_dotenv
+load_dotenv()
 
 def _get_api_key():
     # 1. Try environment variable (.env for local)
