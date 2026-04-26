@@ -2,7 +2,6 @@ import pandas as pd
 
 
 def get_insights(df):
-    print("The Overview of the Data is:")
     insights = []
 
     # 📊 Basic Overview
