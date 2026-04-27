@@ -3,6 +3,9 @@ import numpy as np
 import random
 
 
+# =========================
+# 🤖 MAIN INSIGHTS ENGINE
+# =========================
 def get_insights(df):
     sections = []
 
@@ -203,7 +206,7 @@ def get_insights(df):
     sections.append(f"\n🎯 Confidence Level: {confidence}")
 
     # =========================
-    # 📦 COMBINE EVERYTHING
+    # 📦 COMBINE
     # =========================
     final_output = []
     final_output.extend(summary)
@@ -211,3 +214,45 @@ def get_insights(df):
     final_output.extend(sections)
 
     return "\n".join(final_output)
+
+
+# =========================
+# 💬 CHAT MODE (NEW 🔥)
+# =========================
+def chat_with_data(df, query):
+    query = query.lower()
+    numeric = df.select_dtypes(include='number')
+
+    if "best" in query or "highest" in query:
+        if not numeric.empty:
+            best = numeric.mean().idxmax()
+            return f"📈 The best performing metric is '{best}', as it has the highest average value."
+
+    elif "worst" in query or "lowest" in query:
+        if not numeric.empty:
+            worst = numeric.mean().idxmin()
+            return f"📉 The weakest metric is '{worst}', which may need improvement."
+
+    elif "missing" in query:
+        missing = df.isna().sum()
+        return f"⚠️ Missing values per column:\n{missing.to_string()}"
+
+    elif "correlation" in query:
+        if len(numeric.columns) > 1:
+            corr = numeric.corr()
+            return f"🔥 Correlation matrix:\n{corr.to_string()}"
+        else:
+            return "Not enough numeric columns for correlation."
+
+    elif "rows" in query or "size" in query:
+        return f"The dataset contains {df.shape[0]} rows and {df.shape[1]} columns."
+
+    else:
+        return (
+            "🤖 I didn’t fully understand your question.\n\n"
+            "Try asking:\n"
+            "- Which column is best?\n"
+            "- Which column is worst?\n"
+            "- Show missing values\n"
+            "- Show correlation\n"
+        )
