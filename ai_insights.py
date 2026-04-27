@@ -1,199 +1,213 @@
 import pandas as pd
 import numpy as np
-import os
-from dotenv import load_dotenv
+import random
 
-load_dotenv()
-
-# 🔁 Toggle this (IMPORTANT)
-USE_OPENAI = False   # ← change to True when you add billing
-
-# =========================
-# 🤖 OPENAI VERSION
-# =========================
-def _get_openai_insights(df):
-    from openai import OpenAI
-
-    api_key = os.getenv("OPENAI_API_KEY")
-
-    if not api_key:
-        return "⚠️ OpenAI API key not found."
-
-    client = OpenAI(api_key=api_key)
-
-    summary = df.describe(include="all").transpose().head(20).to_string()
-    columns = df.columns.tolist()
-    missing = df.isna().sum().to_string()
-    sample_rows = df.head(5).to_string(index=False)
-
-    prompt = f"""
-You are an expert data analyst.
-
-Analyze this dataset:
-
-COLUMNS:
-{columns}
-
-STATISTICS:
-{summary}
-
-MISSING VALUES:
-{missing}
-
-SAMPLE DATA:
-{sample_rows}
-
-Provide:
-1. Key Trends
-2. Patterns
-3. Outliers
-4. Business Insights
-5. Recommendations
-
-Keep it simple and professional.
-"""
-
-    try:
-        response = client.chat.completions.create(
-            model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=500
-        )
-
-        return response.choices[0].message.content
-
-    except Exception as e:
-        return f"❌ OpenAI Error: {e}"
-    
-# =========================
-# 🧠 FREE LOCAL VERSION
-# =========================
 
 def get_insights(df):
-    insights = []
+    sections = []
 
-    insights.append("🤖 AI DATA ANALYSIS REPORT")
-    insights.append("=" * 50)
+    # =========================
+    # 🎭 PERSONA STYLE
+    # =========================
+    tone_intro = [
+        "From an analytical perspective, the dataset reveals several meaningful patterns.",
+        "Taking a structured approach, the dataset highlights both strengths and potential concerns.",
+        "A deeper evaluation of the dataset uncovers insights that can guide strategic decisions."
+    ]
 
-    # 📊 Overview
-    insights.append("\n📊 DATASET OVERVIEW")
-    insights.append(f"The dataset contains {df.shape[0]} rows and {df.shape[1]} columns.")
+    connectors = [
+        "Additionally,",
+        "Furthermore,",
+        "From a broader perspective,",
+        "This suggests that",
+        "As a result,"
+    ]
 
-    # 📂 Data Types
-    insights.append("\n📂 DATA STRUCTURE")
-    for col in df.columns:
-        insights.append(f"- '{col}' is of type {df[col].dtype}")
+    # =========================
+    # 🎯 CONFIDENCE
+    # =========================
+    missing_percent = (df.isna().sum().sum() / (df.shape[0] * df.shape[1])) * 100
 
-    # ⚠️ Missing Values
-    missing = df.isna().sum()
-    total_missing = missing.sum()
-
-    if total_missing > 0:
-        insights.append("\n⚠️ DATA QUALITY ISSUES DETECTED")
-        for col, val in missing.items():
-            if val > 0:
-                percent = (val / len(df)) * 100
-                insights.append(f"- {col} has {val} missing values ({percent:.2f}%)")
-        insights.append("👉 Recommendation: Handle missing values before making critical decisions.")
+    if missing_percent < 5:
+        confidence = "High"
+    elif missing_percent < 20:
+        confidence = "Moderate"
     else:
-        insights.append("\n✅ Data appears clean with no missing values.")
+        confidence = "Low"
 
-    # 📈 Numeric Analysis
+    # =========================
+    # 📌 EXECUTIVE SUMMARY
+    # =========================
+    summary = []
+
+    summary.append("📌 EXECUTIVE SUMMARY")
+    summary.append("-" * 50)
+
+    if missing_percent == 0:
+        summary.append("The dataset is clean and reliable, with no significant data quality issues detected.")
+    elif missing_percent < 10:
+        summary.append("The dataset is mostly reliable, though minor data quality issues are present.")
+    else:
+        summary.append("The dataset contains notable data quality concerns that may affect analysis accuracy.")
+
     numeric = df.select_dtypes(include=np.number)
 
     if not numeric.empty:
-        insights.append("\n📈 NUMERIC ANALYSIS")
+        best_col = numeric.mean().idxmax()
+        summary.append(f"The strongest performing metric appears to be '{best_col}', indicating a key area of strength.")
+
+    summary.append(f"Overall confidence in the analysis is assessed as {confidence}.")
+
+    # =========================
+    # 🧠 INTRO
+    # =========================
+    sections.append("🤖 AI DATA ANALYSIS REPORT")
+    sections.append("=" * 60)
+    sections.append("\n" + random.choice(tone_intro))
+
+    # =========================
+    # ⚠️ DATA QUALITY
+    # =========================
+    missing = df.isna().sum()
+
+    if missing.sum() > 0:
+        sections.append("\n⚠️ Data Quality Observations")
+
+        for col, val in missing.items():
+            if val > 0:
+                percent = (val / len(df)) * 100
+
+                if percent > 30:
+                    sections.append(
+                        f"The column '{col}' contains a high proportion of missing values ({percent:.1f}%), which could significantly impact analytical reliability."
+                    )
+                elif percent > 10:
+                    sections.append(
+                        f"The column '{col}' shows a moderate level of missing data ({percent:.1f}%), suggesting potential inconsistencies."
+                    )
+                else:
+                    sections.append(
+                        f"The column '{col}' contains a small amount of missing data ({percent:.1f}%), which is unlikely to heavily affect outcomes."
+                    )
+
+    else:
+        sections.append("\nThe dataset demonstrates strong data integrity with no missing values detected.")
+
+    # =========================
+    # 📈 PERFORMANCE ANALYSIS
+    # =========================
+    if not numeric.empty:
+        sections.append("\n📈 Performance Analysis")
 
         for col in numeric.columns:
             mean = df[col].mean()
-            std = df[col].std()
 
-            insights.append(f"\n🔹 {col}")
-            insights.append(f"  - Average: {mean:.2f}")
-            insights.append(f"  - Standard Deviation: {std:.2f}")
-            insights.append(f"  - Range: {df[col].min()} → {df[col].max()}")
+            if mean > df[col].quantile(0.75):
+                sentence = f"The metric '{col}' demonstrates strong performance, indicating effective underlying factors."
+            elif mean > df[col].quantile(0.4):
+                sentence = f"The metric '{col}' shows moderate performance, suggesting stability but room for improvement."
+            else:
+                sentence = f"The metric '{col}' appears relatively low, which may point to inefficiencies or underperformance."
 
-            # 🚨 Outlier Detection
+            sections.append(sentence)
+
+            sections.append(
+                f"{random.choice(connectors)} focusing on this metric could influence overall results significantly."
+            )
+
+            # Outliers
             q1 = df[col].quantile(0.25)
             q3 = df[col].quantile(0.75)
             iqr = q3 - q1
             outliers = df[(df[col] < q1 - 1.5 * iqr) | (df[col] > q3 + 1.5 * iqr)]
 
-            if not outliers.empty:
-                insights.append(f"  - ⚠️ {len(outliers)} potential outliers detected")
-            else:
-                insights.append("  - No significant outliers detected")
+            if len(outliers) > 0:
+                sections.append(
+                    f"There are {len(outliers)} unusual observations in '{col}', which may represent anomalies or special cases."
+                )
 
-    # 🔥 Correlation Analysis
+    # =========================
+    # 🔥 RELATIONSHIPS
+    # =========================
     if len(numeric.columns) > 1:
         corr = numeric.corr()
-        insights.append("\n🔥 CORRELATION INSIGHTS")
+        sections.append("\n🔗 Relationship Analysis")
 
-        found = False
         for i in range(len(corr.columns)):
             for j in range(i + 1, len(corr.columns)):
-                value = corr.iloc[i, j]
-                if abs(value) > 0.6:
-                    direction = "positive" if value > 0 else "negative"
-                    insights.append(
-                        f"- Strong {direction} relationship between {corr.columns[i]} and {corr.columns[j]} ({value:.2f})"
+                val = corr.iloc[i, j]
+
+                if abs(val) > 0.7:
+                    relation = "strong positive" if val > 0 else "strong negative"
+                    sections.append(
+                        f"There is a {relation} relationship between '{corr.columns[i]}' and '{corr.columns[j]}', indicating a meaningful connection."
                     )
-                    found = True
 
-        if not found:
-            insights.append("- No strong relationships found between variables")
-
-    # 📅 Safer Time Detection (only tries real candidates)
-    insights.append("\n📅 TIME-BASED ANALYSIS")
-
+    # =========================
+    # 📅 TRENDS
+    # =========================
     for col in df.columns:
         try:
             temp = pd.to_datetime(df[col], errors='coerce')
-            if temp.notna().sum() > len(df) * 0.5:  # only if majority valid
+
+            if temp.notna().sum() > len(df) * 0.5:
                 df_sorted = df.copy()
                 df_sorted[col] = temp
                 df_sorted = df_sorted.sort_values(by=col)
 
-                if not numeric.empty:
-                    for num_col in numeric.columns:
-                        trend = df_sorted[num_col].iloc[-1] - df_sorted[num_col].iloc[0]
+                sections.append("\n📅 Trend Analysis")
 
-                        if trend > 0:
-                            insights.append(f"- {num_col} shows an upward trend over time 📈")
-                        elif trend < 0:
-                            insights.append(f"- {num_col} shows a downward trend 📉")
-                        else:
-                            insights.append(f"- {num_col} remains relatively stable")
+                for num_col in numeric.columns:
+                    trend = df_sorted[num_col].iloc[-1] - df_sorted[num_col].iloc[0]
+
+                    if trend > 0:
+                        sections.append(
+                            f"The metric '{num_col}' shows an upward trend over time, suggesting improving performance."
+                        )
+                    elif trend < 0:
+                        sections.append(
+                            f"The metric '{num_col}' shows a downward trend, which may require further investigation."
+                        )
 
                 break
         except:
             continue
 
-    # 🧩 Categorical Analysis
-    categorical = df.select_dtypes(include='object')
+    # =========================
+    # 💡 FINAL RECOMMENDATIONS
+    # =========================
+    sections.append("\n💡 Strategic Recommendations")
 
-    if not categorical.empty:
-        insights.append("\n🧩 CATEGORICAL INSIGHTS")
+    recommendations = [
+        "Focus on strengthening high-performing areas to maximize impact.",
+        "Address data quality issues to improve reliability.",
+        "Investigate underperforming metrics to uncover root causes.",
+        "Leverage relationships between variables to optimize outcomes.",
+        "Continuously monitor trends to support proactive decision-making."
+    ]
 
-        for col in categorical.columns:
-            top_values = df[col].value_counts().head(3)
-            insights.append(f"\n🔹 {col}")
-            for idx, val in top_values.items():
-                insights.append(f"- {idx}: {val} occurrences")
+    for rec in recommendations:
+        sections.append(f"- {rec}")
 
-    # 💡 Business Insights
-    insights.append("\n💡 BUSINESS INSIGHTS & RECOMMENDATIONS")
+    # =========================
+    # 🧠 FINAL NARRATIVE
+    # =========================
+    sections.append("\n🧠 Final Analysis")
 
-    if not numeric.empty:
-        best_col = numeric.mean().idxmax()
-        insights.append(f"- '{best_col}' is performing the strongest on average")
+    sections.append(
+        "Overall, the dataset presents a combination of strengths and improvement opportunities. "
+        "While certain metrics demonstrate solid performance, others may require targeted attention. "
+        "By aligning strategies with these insights, more informed and effective decisions can be made."
+    )
 
-    insights.append("- Focus on high-performing segments to maximize outcomes")
-    insights.append("- Investigate anomalies or sudden drops in performance")
-    insights.append("- Improve data collection to reduce missing values")
-    insights.append("- Use trends to guide future decision-making")
+    sections.append(f"\n🎯 Confidence Level: {confidence}")
 
-    insights.append("\n🚀 Overall: The dataset provides actionable insights that can drive smarter decisions if leveraged correctly.")
+    # =========================
+    # 📦 COMBINE EVERYTHING
+    # =========================
+    final_output = []
+    final_output.extend(summary)
+    final_output.append("\n")
+    final_output.extend(sections)
 
-    return "\n".join(insights)
+    return "\n".join(final_output)
