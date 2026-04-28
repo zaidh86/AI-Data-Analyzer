@@ -3,9 +3,8 @@ import plotly.express as px
 import plotly.figure_factory as ff
 import streamlit as st
 
-from ai_insights import get_insights
+from ai_insights import get_insights, chat_with_data
 from report_generator import generate_report
-from ai_insights import chat_with_data  # NEW
 
 
 # =========================
@@ -17,7 +16,6 @@ PUZZLE = "🧩"
 TRENDING_UP = "📈"
 FIRE = "🔥"
 ROBOT = "🤖"
-INBOX = "📥"
 POINT_LEFT = "👈"
 CHECK = "✅"
 
@@ -50,14 +48,16 @@ def build_missing_values_table(df):
 
 
 # =========================
-# 🧠 SIDEBAR (NEW FEATURES)
+# 🧠 SIDEBAR
 # =========================
 st.sidebar.header("⚙️ Settings")
 
 persona = st.sidebar.selectbox(
-    "🎭 Select AI Persona",
+    "🎭 AI Persona",
     ["Analyst", "CEO", "Marketing"]
 )
+
+ai_mode = st.sidebar.toggle("🤖 Enable Real AI (Groq)", value=True)
 
 uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
 
@@ -77,13 +77,14 @@ if uploaded_file is None:
 try:
     df = load_csv(uploaded_file)
 except Exception:
-    st.error("Invalid CSV file. Please upload a valid file.")
+    st.error("Invalid CSV file.")
     st.stop()
 
 
 # Reset insights if new file
-if "insights" in st.session_state:
-    del st.session_state["insights"]
+if "last_file" not in st.session_state or st.session_state.last_file != uploaded_file.name:
+    st.session_state.insights = None
+    st.session_state.last_file = uploaded_file.name
 
 
 if df.empty:
@@ -127,7 +128,7 @@ with stats_col:
 
 
 # =========================
-# ⚠️ ALERT SYSTEM (NEW)
+# 🚨 ALERT SYSTEM
 # =========================
 missing_percent = (df.isna().sum().sum() / (df.shape[0] * df.shape[1])) * 100
 
@@ -137,7 +138,7 @@ if missing_percent > 30:
     alerts.append("⚠️ Critical: High missing data detected")
 
 if df.shape[0] < 50:
-    alerts.append("⚠️ Dataset is very small — insights may not be reliable")
+    alerts.append("⚠️ Dataset is very small — results may be unreliable")
 
 if alerts:
     st.divider()
@@ -161,24 +162,23 @@ st.divider()
 st.subheader(f"{TRENDING_UP} Interactive Visualization")
 
 if numeric_columns:
-    chart_type = st.selectbox("Select chart type", ["Histogram", "Box Plot", "Scatter Plot"])
+    chart_type = st.selectbox("Chart Type", ["Histogram", "Box Plot", "Scatter Plot"])
 
     if chart_type in {"Histogram", "Box Plot"}:
-        selected_column = st.selectbox("Select numeric column", numeric_columns)
+        col = st.selectbox("Select Column", numeric_columns)
 
         if chart_type == "Histogram":
-            fig = px.histogram(df, x=selected_column, nbins=30)
+            fig = px.histogram(df, x=col, nbins=30)
         else:
-            fig = px.box(df, y=selected_column)
+            fig = px.box(df, y=col)
 
         st.plotly_chart(fig, use_container_width=True)
 
     elif len(numeric_columns) >= 2:
-        x_axis = st.selectbox("X-axis", numeric_columns)
-        y_axis_options = [c for c in numeric_columns if c != x_axis]
-        y_axis = st.selectbox("Y-axis", y_axis_options)
+        x = st.selectbox("X-axis", numeric_columns)
+        y = st.selectbox("Y-axis", [c for c in numeric_columns if c != x])
 
-        fig = px.scatter(df, x=x_axis, y=y_axis)
+        fig = px.scatter(df, x=x, y=y)
         st.plotly_chart(fig, use_container_width=True)
 else:
     st.warning("No numeric columns found.")
@@ -217,7 +217,7 @@ if st.button("Generate AI Insights", type="primary"):
     with st.spinner("Analyzing data..."):
         st.session_state.insights = get_insights(df)
 
-if "insights" in st.session_state:
+if st.session_state.get("insights"):
     st.markdown(st.session_state.insights)
 
     report = generate_report(df, st.session_state.insights)
@@ -231,13 +231,15 @@ if "insights" in st.session_state:
 
 
 # =========================
-# 💬 CHAT MODE (NEW 🔥)
+# 💬 CHAT MODE (UPGRADED)
 # =========================
 st.divider()
 st.subheader("💬 Ask Questions About Your Data")
 
-user_query = st.text_input("Ask something about your dataset...")
+query = st.text_input("Ask something...")
 
-if user_query:
-    response = chat_with_data(df, user_query)
+if query:
+    with st.spinner("Thinking..."):
+        response = chat_with_data(df, query)
+
     st.success(response)

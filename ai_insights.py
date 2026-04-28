@@ -1,6 +1,55 @@
 import pandas as pd
 import numpy as np
 import random
+from groq import Groq
+import os
+
+
+# =========================
+# ⚙️ SETTINGS
+# =========================
+USE_GROQ = True   # 🔁 set False if you want only local AI
+
+
+# =========================
+# 🤖 GROQ AI FUNCTION
+# =========================
+def get_groq_insights(df):
+    try:
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+        prompt = f"""
+You are a professional data analyst.
+
+Analyze this dataset and provide a clear, human-like, and insightful report.
+
+DATA SUMMARY:
+{df.describe().to_string()}
+
+Your response must include:
+1. Executive Summary
+2. Key Insights
+3. Data Quality Issues
+4. Trends & Patterns
+5. Business Recommendations
+
+Style:
+- Natural, human-like tone
+- Explain reasoning
+- Give actionable advice
+- Avoid robotic language
+"""
+
+        response = client.chat.completions.create(
+            model="llama3-70b-8192",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        return f"⚠️ Groq AI Error: {e}"
 
 
 # =========================
@@ -9,9 +58,6 @@ import random
 def get_insights(df):
     sections = []
 
-    # =========================
-    # 🎭 PERSONA STYLE
-    # =========================
     tone_intro = [
         "From an analytical perspective, the dataset reveals several meaningful patterns.",
         "Taking a structured approach, the dataset highlights both strengths and potential concerns.",
@@ -42,7 +88,6 @@ def get_insights(df):
     # 📌 EXECUTIVE SUMMARY
     # =========================
     summary = []
-
     summary.append("📌 EXECUTIVE SUMMARY")
     summary.append("-" * 50)
 
@@ -81,17 +126,11 @@ def get_insights(df):
                 percent = (val / len(df)) * 100
 
                 if percent > 30:
-                    sections.append(
-                        f"The column '{col}' contains a high proportion of missing values ({percent:.1f}%), which could significantly impact analytical reliability."
-                    )
+                    sections.append(f"The column '{col}' contains a high proportion of missing values ({percent:.1f}%).")
                 elif percent > 10:
-                    sections.append(
-                        f"The column '{col}' shows a moderate level of missing data ({percent:.1f}%), suggesting potential inconsistencies."
-                    )
+                    sections.append(f"The column '{col}' shows a moderate level of missing data ({percent:.1f}%).")
                 else:
-                    sections.append(
-                        f"The column '{col}' contains a small amount of missing data ({percent:.1f}%), which is unlikely to heavily affect outcomes."
-                    )
+                    sections.append(f"The column '{col}' contains a small amount of missing data ({percent:.1f}%).")
 
     else:
         sections.append("\nThe dataset demonstrates strong data integrity with no missing values detected.")
@@ -106,75 +145,14 @@ def get_insights(df):
             mean = df[col].mean()
 
             if mean > df[col].quantile(0.75):
-                sentence = f"The metric '{col}' demonstrates strong performance, indicating effective underlying factors."
+                sentence = f"The metric '{col}' demonstrates strong performance."
             elif mean > df[col].quantile(0.4):
-                sentence = f"The metric '{col}' shows moderate performance, suggesting stability but room for improvement."
+                sentence = f"The metric '{col}' shows moderate performance."
             else:
-                sentence = f"The metric '{col}' appears relatively low, which may point to inefficiencies or underperformance."
+                sentence = f"The metric '{col}' appears relatively low."
 
             sections.append(sentence)
-
-            sections.append(
-                f"{random.choice(connectors)} focusing on this metric could influence overall results significantly."
-            )
-
-            # Outliers
-            q1 = df[col].quantile(0.25)
-            q3 = df[col].quantile(0.75)
-            iqr = q3 - q1
-            outliers = df[(df[col] < q1 - 1.5 * iqr) | (df[col] > q3 + 1.5 * iqr)]
-
-            if len(outliers) > 0:
-                sections.append(
-                    f"There are {len(outliers)} unusual observations in '{col}', which may represent anomalies or special cases."
-                )
-
-    # =========================
-    # 🔥 RELATIONSHIPS
-    # =========================
-    if len(numeric.columns) > 1:
-        corr = numeric.corr()
-        sections.append("\n🔗 Relationship Analysis")
-
-        for i in range(len(corr.columns)):
-            for j in range(i + 1, len(corr.columns)):
-                val = corr.iloc[i, j]
-
-                if abs(val) > 0.7:
-                    relation = "strong positive" if val > 0 else "strong negative"
-                    sections.append(
-                        f"There is a {relation} relationship between '{corr.columns[i]}' and '{corr.columns[j]}', indicating a meaningful connection."
-                    )
-
-    # =========================
-    # 📅 TRENDS
-    # =========================
-    for col in df.columns:
-        try:
-            temp = pd.to_datetime(df[col], errors='coerce')
-
-            if temp.notna().sum() > len(df) * 0.5:
-                df_sorted = df.copy()
-                df_sorted[col] = temp
-                df_sorted = df_sorted.sort_values(by=col)
-
-                sections.append("\n📅 Trend Analysis")
-
-                for num_col in numeric.columns:
-                    trend = df_sorted[num_col].iloc[-1] - df_sorted[num_col].iloc[0]
-
-                    if trend > 0:
-                        sections.append(
-                            f"The metric '{num_col}' shows an upward trend over time, suggesting improving performance."
-                        )
-                    elif trend < 0:
-                        sections.append(
-                            f"The metric '{num_col}' shows a downward trend, which may require further investigation."
-                        )
-
-                break
-        except:
-            continue
+            sections.append(f"{random.choice(connectors)} focusing on this metric could influence results.")
 
     # =========================
     # 💡 FINAL RECOMMENDATIONS
@@ -182,77 +160,57 @@ def get_insights(df):
     sections.append("\n💡 Strategic Recommendations")
 
     recommendations = [
-        "Focus on strengthening high-performing areas to maximize impact.",
-        "Address data quality issues to improve reliability.",
-        "Investigate underperforming metrics to uncover root causes.",
-        "Leverage relationships between variables to optimize outcomes.",
-        "Continuously monitor trends to support proactive decision-making."
+        "Focus on strengthening high-performing areas.",
+        "Address data quality issues.",
+        "Investigate underperforming metrics.",
+        "Leverage relationships between variables.",
+        "Monitor trends continuously."
     ]
 
     for rec in recommendations:
         sections.append(f"- {rec}")
 
-    # =========================
-    # 🧠 FINAL NARRATIVE
-    # =========================
-    sections.append("\n🧠 Final Analysis")
-
-    sections.append(
-        "Overall, the dataset presents a combination of strengths and improvement opportunities. "
-        "While certain metrics demonstrate solid performance, others may require targeted attention. "
-        "By aligning strategies with these insights, more informed and effective decisions can be made."
-    )
-
     sections.append(f"\n🎯 Confidence Level: {confidence}")
 
     # =========================
-    # 📦 COMBINE
+    # 📦 COMBINE LOCAL OUTPUT
     # =========================
-    final_output = []
-    final_output.extend(summary)
-    final_output.append("\n")
-    final_output.extend(sections)
+    local_output = []
+    local_output.extend(summary)
+    local_output.append("\n")
+    local_output.extend(sections)
 
-    return "\n".join(final_output)
+    final_text = "\n".join(local_output)
+
+    # =========================
+    # 🤖 GROQ ENHANCEMENT
+    # =========================
+    if USE_GROQ:
+        ai_output = get_groq_insights(df)
+
+        final_text += "\n\n🤖 AI ENHANCED INSIGHTS\n" + "-" * 50 + "\n" + ai_output
+
+    return final_text
 
 
 # =========================
-# 💬 CHAT MODE (NEW 🔥)
+# 💬 CHAT MODE
 # =========================
 def chat_with_data(df, query):
     query = query.lower()
     numeric = df.select_dtypes(include='number')
 
-    if "best" in query or "highest" in query:
-        if not numeric.empty:
-            best = numeric.mean().idxmax()
-            return f"📈 The best performing metric is '{best}', as it has the highest average value."
+    if "best" in query:
+        return f"Best metric: {numeric.mean().idxmax()}"
 
-    elif "worst" in query or "lowest" in query:
-        if not numeric.empty:
-            worst = numeric.mean().idxmin()
-            return f"📉 The weakest metric is '{worst}', which may need improvement."
+    elif "worst" in query:
+        return f"Worst metric: {numeric.mean().idxmin()}"
 
     elif "missing" in query:
-        missing = df.isna().sum()
-        return f"⚠️ Missing values per column:\n{missing.to_string()}"
+        return df.isna().sum().to_string()
 
-    elif "correlation" in query:
-        if len(numeric.columns) > 1:
-            corr = numeric.corr()
-            return f"🔥 Correlation matrix:\n{corr.to_string()}"
-        else:
-            return "Not enough numeric columns for correlation."
-
-    elif "rows" in query or "size" in query:
-        return f"The dataset contains {df.shape[0]} rows and {df.shape[1]} columns."
+    elif "rows" in query:
+        return f"{df.shape[0]} rows and {df.shape[1]} columns"
 
     else:
-        return (
-            "🤖 I didn’t fully understand your question.\n\n"
-            "Try asking:\n"
-            "- Which column is best?\n"
-            "- Which column is worst?\n"
-            "- Show missing values\n"
-            "- Show correlation\n"
-        )
+        return "Try asking about best/worst/missing data."
