@@ -3,6 +3,8 @@ import numpy as np
 import random
 from groq import Groq
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 
 # =========================
@@ -15,6 +17,7 @@ USE_GROQ = True   # 🔁 set False if you want only local AI
 # 🤖 GROQ AI FUNCTION
 # =========================
 def get_groq_insights(df):
+    print("API KEY:", os.getenv("GROQ_API_KEY"))
     try:
         client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
@@ -193,24 +196,107 @@ def get_insights(df):
     return final_text
 
 
-# =========================
-# 💬 CHAT MODE
-# =========================
 def chat_with_data(df, query):
     query = query.lower()
     numeric = df.select_dtypes(include='number')
 
-    if "best" in query:
-        return f"Best metric: {numeric.mean().idxmax()}"
+    # =========================
+    # 🤖 TRY REAL AI (GROQ)
+    # =========================
+    try:
+        if os.getenv("GROQ_API_KEY"):
+            client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-    elif "worst" in query:
-        return f"Worst metric: {numeric.mean().idxmin()}"
+            prompt = f"""
+You are a smart data analyst assistant.
 
+Dataset summary:
+{df.describe().to_string()}
+
+User question:
+{query}
+
+Respond in a:
+- Human-like tone
+- Clear explanation
+- Include advice if possible
+- Keep it concise but insightful
+"""
+
+            response = client.chat.completions.create(
+                model="llama3-70b-8192",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.6
+            )
+
+            return response.choices[0].message.content
+
+    except:
+        pass  # fallback to local logic
+
+    # =========================
+    # 🧠 SMART LOCAL RESPONSES
+    # =========================
+
+    # 📈 BEST
+    if "best" in query or "highest" in query:
+        if not numeric.empty:
+            best = numeric.mean().idxmax()
+            return (
+                f"📈 Looking at the overall performance, **'{best}' stands out as the strongest metric**.\n\n"
+                f"This suggests that this area is performing consistently well. "
+                f"You might want to focus on maintaining or scaling this success further."
+            )
+
+    # 📉 WORST
+    elif "worst" in query or "lowest" in query:
+        if not numeric.empty:
+            worst = numeric.mean().idxmin()
+            return (
+                f"📉 The data indicates that **'{worst}' is underperforming compared to other metrics**.\n\n"
+                f"This could be a potential area of concern. It may be worth investigating the reasons behind this trend."
+            )
+
+    # ⚠️ MISSING
     elif "missing" in query:
-        return df.isna().sum().to_string()
+        missing = df.isna().sum()
+        total = missing.sum()
 
-    elif "rows" in query:
-        return f"{df.shape[0]} rows and {df.shape[1]} columns"
+        if total == 0:
+            return "✅ Good news — your dataset looks clean with no missing values detected."
 
-    else:
-        return "Try asking about best/worst/missing data."
+        return (
+            f"⚠️ There are **{total} missing values** in your dataset.\n\n"
+            f"Here’s a breakdown:\n{missing.to_string()}\n\n"
+            f"👉 It's generally a good idea to handle missing data before making important decisions."
+        )
+
+    # 📊 SIZE
+    elif "rows" in query or "size" in query:
+        return (
+            f"📊 Your dataset contains **{df.shape[0]} rows and {df.shape[1]} columns**.\n\n"
+            f"This gives a decent amount of data to analyze, though more data usually improves reliability."
+        )
+
+    # 🔥 CORRELATION
+    elif "correlation" in query:
+        if len(numeric.columns) > 1:
+            corr = numeric.corr()
+            return (
+                "🔥 Here’s the correlation matrix between your numeric variables:\n\n"
+                f"{corr.to_string()}\n\n"
+                "👉 Strong relationships (close to 1 or -1) can reveal important patterns."
+            )
+        else:
+            return "Not enough numeric data to analyze correlations."
+
+    # 🤖 DEFAULT SMART RESPONSE
+    return (
+        "🤖 I didn’t fully catch that, but I can help!\n\n"
+        "Try asking things like:\n"
+        "• Which metric is performing best?\n"
+        "• Are there any missing values?\n"
+        "• Show correlations\n"
+        "• What’s the dataset size?\n\n"
+        "👉 You can also ask more specific questions!"
+    )
