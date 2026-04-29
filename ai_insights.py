@@ -4,19 +4,20 @@ import random
 from groq import Groq
 import os
 from dotenv import load_dotenv
+
 load_dotenv()
 
 
 # =========================
 # ⚙️ SETTINGS
 # =========================
-USE_GROQ = True   # 🔁 set False if you want only local AI
+USE_GROQ = True
 
 
 # =========================
 # 🤖 GROQ AI FUNCTION
 # =========================
-def get_groq_insights(df):
+def get_groq_insights(df, persona="Analyst"):
     try:
         api_key = os.getenv("GROQ_API_KEY")
 
@@ -25,8 +26,29 @@ def get_groq_insights(df):
 
         client = Groq(api_key=api_key)
 
+        # 🎭 PERSONA STYLE
+        if persona == "CEO":
+            role_prompt = """
+Focus on high-level strategy, business impact, risks, and opportunities.
+Keep it concise and decision-oriented.
+"""
+
+        elif persona == "Marketing":
+            role_prompt = """
+Focus on customer behavior, product trends, engagement, and growth opportunities.
+Highlight what drives sales and demand.
+"""
+
+        else:
+            role_prompt = """
+Focus on detailed analysis, trends, patterns, and statistical insights.
+Be precise and analytical.
+"""
+
         prompt = f"""
 You are a professional data analyst.
+
+{role_prompt}
 
 Analyze this dataset and provide a clear, human-like, and insightful report.
 
@@ -54,10 +76,9 @@ Your response must include:
 5. Business Recommendations
 
 Style:
-- Natural, human-like tone
-- Explain reasoning
-- Give actionable advice
-- Avoid robotic language
+- Natural tone
+- Clear reasoning
+- Actionable advice
 """
 
         response = client.chat.completions.create(
@@ -75,7 +96,7 @@ Style:
 # =========================
 # 🤖 MAIN INSIGHTS ENGINE
 # =========================
-def get_insights(df):
+def get_insights(df, persona="Analyst"):
     sections = []
 
     tone_intro = [
@@ -92,9 +113,7 @@ def get_insights(df):
         "As a result,"
     ]
 
-    # =========================
     # 🎯 CONFIDENCE
-    # =========================
     missing_percent = (df.isna().sum().sum() / (df.shape[0] * df.shape[1])) * 100
 
     if missing_percent < 5:
@@ -104,9 +123,7 @@ def get_insights(df):
     else:
         confidence = "Low"
 
-    # =========================
-    # 📌 EXECUTIVE SUMMARY
-    # =========================
+    # 📌 SUMMARY
     summary = []
     summary.append("📌 EXECUTIVE SUMMARY")
     summary.append("-" * 50)
@@ -126,16 +143,12 @@ def get_insights(df):
 
     summary.append(f"Overall confidence in the analysis is assessed as {confidence}.")
 
-    # =========================
     # 🧠 INTRO
-    # =========================
     sections.append("🤖 AI DATA ANALYSIS REPORT")
     sections.append("=" * 60)
     sections.append("\n" + random.choice(tone_intro))
 
-    # =========================
     # ⚠️ DATA QUALITY
-    # =========================
     missing = df.isna().sum()
 
     if missing.sum() > 0:
@@ -155,9 +168,7 @@ def get_insights(df):
     else:
         sections.append("\nThe dataset demonstrates strong data integrity with no missing values detected.")
 
-    # =========================
-    # 📈 PERFORMANCE ANALYSIS
-    # =========================
+    # 📈 PERFORMANCE
     if not numeric.empty:
         sections.append("\n📈 Performance Analysis")
 
@@ -174,9 +185,7 @@ def get_insights(df):
             sections.append(sentence)
             sections.append(f"{random.choice(connectors)} focusing on this metric could influence results.")
 
-    # =========================
-    # 💡 FINAL RECOMMENDATIONS
-    # =========================
+    # 💡 RECOMMENDATIONS
     sections.append("\n💡 Strategic Recommendations")
 
     recommendations = [
@@ -192,40 +201,40 @@ def get_insights(df):
 
     sections.append(f"\n🎯 Confidence Level: {confidence}")
 
-    # =========================
-    # 📦 COMBINE LOCAL OUTPUT
-    # =========================
-    local_output = []
-    local_output.extend(summary)
-    local_output.append("\n")
-    local_output.extend(sections)
+    # 📦 COMBINE LOCAL
+    final_text = "\n".join(summary + [""] + sections)
 
-    final_text = "\n".join(local_output)
-
-    # =========================
-    # 🤖 GROQ ENHANCEMENT
-    # =========================
+    # 🤖 GROQ
     if USE_GROQ:
-        ai_output = get_groq_insights(df)
-
+        ai_output = get_groq_insights(df, persona)
         final_text += "\n\n🤖 AI ENHANCED INSIGHTS\n" + "-" * 50 + "\n" + ai_output
 
     return final_text
 
 
-def chat_with_data(df, query):
+# =========================
+# 💬 CHAT MODE
+# =========================
+def chat_with_data(df, query, persona="Analyst"):
     query = query.lower()
     numeric = df.select_dtypes(include='number')
 
-    # =========================
-    # 🤖 TRY REAL AI (GROQ)
-    # =========================
     try:
         if os.getenv("GROQ_API_KEY"):
             client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+            # 🎭 PERSONA
+            if persona == "CEO":
+                role_prompt = "You are a CEO giving strategic, high-level advice."
+
+            elif persona == "Marketing":
+                role_prompt = "You are a marketing expert focusing on customer trends and growth."
+
+            else:
+                role_prompt = "You are a data analyst focusing on insights and patterns."
+
             prompt = f"""
-You are a smart data analyst assistant.
+{role_prompt}
 
 Dataset summary:
 {df.describe().to_string()}
@@ -233,11 +242,11 @@ Dataset summary:
 User question:
 {query}
 
-Respond in a:
-- Human-like tone
-- Clear explanation
-- Include advice if possible
-- Keep it concise but insightful
+Respond:
+- Clearly
+- Naturally
+- With reasoning
+- Include actionable advice
 """
 
             response = client.chat.completions.create(
@@ -249,71 +258,19 @@ Respond in a:
             return response.choices[0].message.content
 
     except:
-        pass  # fallback to local logic
+        pass
 
-    # =========================
-    # 🧠 SMART LOCAL RESPONSES
-    # =========================
+    # 🧠 FALLBACK
+    if "best" in query:
+        return f"Best metric: {numeric.mean().idxmax()}"
 
-    # 📈 BEST
-    if "best" in query or "highest" in query:
-        if not numeric.empty:
-            best = numeric.mean().idxmax()
-            return (
-                f"📈 Looking at the overall performance, **'{best}' stands out as the strongest metric**.\n\n"
-                f"This suggests that this area is performing consistently well. "
-                f"You might want to focus on maintaining or scaling this success further."
-            )
+    elif "worst" in query:
+        return f"Worst metric: {numeric.mean().idxmin()}"
 
-    # 📉 WORST
-    elif "worst" in query or "lowest" in query:
-        if not numeric.empty:
-            worst = numeric.mean().idxmin()
-            return (
-                f"📉 The data indicates that **'{worst}' is underperforming compared to other metrics**.\n\n"
-                f"This could be a potential area of concern. It may be worth investigating the reasons behind this trend."
-            )
-
-    # ⚠️ MISSING
     elif "missing" in query:
-        missing = df.isna().sum()
-        total = missing.sum()
+        return df.isna().sum().to_string()
 
-        if total == 0:
-            return "✅ Good news — your dataset looks clean with no missing values detected."
+    elif "rows" in query:
+        return f"{df.shape[0]} rows and {df.shape[1]} columns"
 
-        return (
-            f"⚠️ There are **{total} missing values** in your dataset.\n\n"
-            f"Here’s a breakdown:\n{missing.to_string()}\n\n"
-            f"👉 It's generally a good idea to handle missing data before making important decisions."
-        )
-
-    # 📊 SIZE
-    elif "rows" in query or "size" in query:
-        return (
-            f"📊 Your dataset contains **{df.shape[0]} rows and {df.shape[1]} columns**.\n\n"
-            f"This gives a decent amount of data to analyze, though more data usually improves reliability."
-        )
-
-    # 🔥 CORRELATION
-    elif "correlation" in query:
-        if len(numeric.columns) > 1:
-            corr = numeric.corr()
-            return (
-                "🔥 Here’s the correlation matrix between your numeric variables:\n\n"
-                f"{corr.to_string()}\n\n"
-                "👉 Strong relationships (close to 1 or -1) can reveal important patterns."
-            )
-        else:
-            return "Not enough numeric data to analyze correlations."
-
-    # 🤖 DEFAULT SMART RESPONSE
-    return (
-        "🤖 I didn’t fully catch that, but I can help!\n\n"
-        "Try asking things like:\n"
-        "• Which metric is performing best?\n"
-        "• Are there any missing values?\n"
-        "• Show correlations\n"
-        "• What’s the dataset size?\n\n"
-        "👉 You can also ask more specific questions!"
-    )
+    return "Ask about best/worst/missing/correlation."

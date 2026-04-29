@@ -235,7 +235,7 @@ if st.button("Generate AI Insights", type="primary"):
 if st.session_state.get("insights"):
     st.markdown(st.session_state.insights)
 
-    report = generate_report(df, st.session_state.insights)
+    report = generate_report(df, st.session_state.insights,persona)
 
     st.download_button(
         label="📄 Download PDF Report",
