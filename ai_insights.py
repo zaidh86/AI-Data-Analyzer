@@ -22,191 +22,146 @@ def get_groq_insights(df, persona="Analyst"):
         api_key = os.getenv("GROQ_API_KEY")
 
         if not api_key:
-            return "⚠️ Groq API key not found. Please check your .env file."
+            return "⚠️ Groq API key not found."
 
         client = Groq(api_key=api_key)
 
-        # 🎭 PERSONA STYLE
         if persona == "CEO":
-            role_prompt = """
-Focus on high-level strategy, business impact, risks, and opportunities.
-Keep it concise and decision-oriented.
-"""
-
+            role_prompt = "Focus on strategy, risks, and business decisions."
         elif persona == "Marketing":
-            role_prompt = """
-Focus on customer behavior, product trends, engagement, and growth opportunities.
-Highlight what drives sales and demand.
-"""
-
+            role_prompt = "Focus on customer behavior, demand, and growth opportunities."
         else:
-            role_prompt = """
-Focus on detailed analysis, trends, patterns, and statistical insights.
-Be precise and analytical.
-"""
+            role_prompt = "Focus on detailed analysis, trends, and patterns."
 
         prompt = f"""
-You are a professional data analyst.
+You are an expert data analyst.
 
 {role_prompt}
 
-Analyze this dataset and provide a clear, human-like, and insightful report.
-
-DATA OVERVIEW:
-Rows: {df.shape[0]}
-Columns: {df.shape[1]}
-
-COLUMNS:
-{list(df.columns)}
-
-DATA TYPES:
-{df.dtypes.to_string()}
-
-MISSING VALUES:
-{df.isna().sum().to_string()}
-
-STATISTICS:
+Dataset:
 {df.describe(include='all').to_string()}
 
-Your response must include:
-1. Executive Summary
-2. Key Insights
-3. Data Quality Issues
-4. Trends & Patterns
-5. Business Recommendations
-
-Style:
-- Natural tone
-- Clear reasoning
-- Actionable advice
+Give:
+- Clear insights
+- Key patterns
+- Business advice
+- Keep it concise but powerful
 """
 
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.5
+            temperature=0.6
         )
 
         return response.choices[0].message.content
 
     except Exception as e:
-        return f"⚠️ Groq AI Error: {e}"
+        return f"⚠️ Groq Error: {e}"
 
 
 # =========================
-# 🤖 MAIN INSIGHTS ENGINE
+# 🧠 SMART LOCAL ENGINE
 # =========================
-def get_insights(df, persona="Analyst"):
-    sections = []
-
-    tone_intro = [
-        "From an analytical perspective, the dataset reveals several meaningful patterns.",
-        "Taking a structured approach, the dataset highlights both strengths and potential concerns.",
-        "A deeper evaluation of the dataset uncovers insights that can guide strategic decisions."
-    ]
-
-    connectors = [
-        "Additionally,",
-        "Furthermore,",
-        "From a broader perspective,",
-        "This suggests that",
-        "As a result,"
-    ]
-
-    # 🎯 CONFIDENCE
-    missing_percent = (df.isna().sum().sum() / (df.shape[0] * df.shape[1])) * 100
-
-    if missing_percent < 5:
-        confidence = "High"
-    elif missing_percent < 20:
-        confidence = "Moderate"
-    else:
-        confidence = "Low"
-
-    # 📌 SUMMARY
-    summary = []
-    summary.append("📌 EXECUTIVE SUMMARY")
-    summary.append("-" * 50)
-
-    if missing_percent == 0:
-        summary.append("The dataset is clean and reliable, with no significant data quality issues detected.")
-    elif missing_percent < 10:
-        summary.append("The dataset is mostly reliable, though minor data quality issues are present.")
-    else:
-        summary.append("The dataset contains notable data quality concerns that may affect analysis accuracy.")
+def get_local_insights(df, persona="Analyst"):
+    insights = []
 
     numeric = df.select_dtypes(include=np.number)
 
-    if not numeric.empty:
-        best_col = numeric.mean().idxmax()
-        summary.append(f"The strongest performing metric appears to be '{best_col}', indicating a key area of strength.")
+    # 🎭 Persona intro
+    if persona == "CEO":
+        insights.append("🧑‍💼 EXECUTIVE OVERVIEW")
+        insights.append("This dataset highlights key performance areas and potential risks.")
 
-    summary.append(f"Overall confidence in the analysis is assessed as {confidence}.")
-
-    # 🧠 INTRO
-    sections.append("🤖 AI DATA ANALYSIS REPORT")
-    sections.append("=" * 60)
-    sections.append("\n" + random.choice(tone_intro))
-
-    # ⚠️ DATA QUALITY
-    missing = df.isna().sum()
-
-    if missing.sum() > 0:
-        sections.append("\n⚠️ Data Quality Observations")
-
-        for col, val in missing.items():
-            if val > 0:
-                percent = (val / len(df)) * 100
-
-                if percent > 30:
-                    sections.append(f"The column '{col}' contains a high proportion of missing values ({percent:.1f}%).")
-                elif percent > 10:
-                    sections.append(f"The column '{col}' shows a moderate level of missing data ({percent:.1f}%).")
-                else:
-                    sections.append(f"The column '{col}' contains a small amount of missing data ({percent:.1f}%).")
+    elif persona == "Marketing":
+        insights.append("📣 MARKETING INSIGHTS")
+        insights.append("The data reveals trends in demand, customer behavior, and product performance.")
 
     else:
-        sections.append("\nThe dataset demonstrates strong data integrity with no missing values detected.")
+        insights.append("📊 DATA ANALYSIS SUMMARY")
+        insights.append("The dataset provides useful insights into trends and performance.")
 
-    # 📈 PERFORMANCE
+    # 📊 Basic overview
+    insights.append(f"\nDataset size: {df.shape[0]} rows × {df.shape[1]} columns")
+
+    # ⚠️ Missing data
+    missing = df.isna().sum().sum()
+    if missing == 0:
+        insights.append("No missing values detected — data quality is strong.")
+    else:
+        insights.append(f"{missing} missing values detected — cleaning recommended.")
+
+    # 📈 Performance logic (smarter)
     if not numeric.empty:
-        sections.append("\n📈 Performance Analysis")
+        best = numeric.mean().idxmax()
+        worst = numeric.mean().idxmin()
 
-        for col in numeric.columns:
-            mean = df[col].mean()
+        insights.append(f"\nTop performing metric: {best}")
+        insights.append(f"Underperforming metric: {worst}")
 
-            if mean > df[col].quantile(0.75):
-                sentence = f"The metric '{col}' demonstrates strong performance."
-            elif mean > df[col].quantile(0.4):
-                sentence = f"The metric '{col}' shows moderate performance."
-            else:
-                sentence = f"The metric '{col}' appears relatively low."
+        # variation insight
+        variability = numeric.std().mean()
 
-            sections.append(sentence)
-            sections.append(f"{random.choice(connectors)} focusing on this metric could influence results.")
+        if variability > 1000:
+            insights.append("There is high variability in the data — performance is inconsistent.")
+        else:
+            insights.append("Data shows relatively stable performance across metrics.")
 
-    # 💡 RECOMMENDATIONS
-    sections.append("\n💡 Strategic Recommendations")
+    # 🔥 correlation insight
+    if len(numeric.columns) > 1:
+        corr = numeric.corr().abs()
+        strong_pairs = []
 
-    recommendations = [
-        "Focus on strengthening high-performing areas.",
-        "Address data quality issues.",
-        "Investigate underperforming metrics.",
-        "Leverage relationships between variables.",
-        "Monitor trends continuously."
-    ]
+        for i in range(len(corr.columns)):
+            for j in range(i + 1, len(corr.columns)):
+                if corr.iloc[i, j] > 0.7:
+                    strong_pairs.append((corr.columns[i], corr.columns[j]))
 
-    for rec in recommendations:
-        sections.append(f"- {rec}")
+        if strong_pairs:
+            insights.append("\nStrong relationships detected between variables:")
+            for a, b in strong_pairs:
+                insights.append(f"- {a} & {b}")
 
-    sections.append(f"\n🎯 Confidence Level: {confidence}")
+    # 💡 advice (persona-based)
+    insights.append("\n💡 Recommendations:")
 
-    # 📦 COMBINE LOCAL
+    if persona == "CEO":
+        insights.append("- Focus on improving weaker metrics.")
+        insights.append("- Reduce performance variability.")
+        insights.append("- Scale high-performing areas.")
+
+    elif persona == "Marketing":
+        insights.append("- Focus on high-demand products.")
+        insights.append("- Improve customer satisfaction.")
+        insights.append("- Target top-performing segments.")
+
+    else:
+        insights.append("- Investigate anomalies.")
+        insights.append("- Optimize strong variables.")
+        insights.append("- Clean missing data if present.")
+
+    return "\n".join(insights)
+
+
+# =========================
+# 🤖 MAIN INSIGHTS FUNCTION
+# =========================
+def get_insights(df, persona="Analyst"):
+    local_output = get_local_insights(df, persona)
+
     if USE_GROQ:
-        return get_groq_insights(df, persona)
+        ai_output = get_groq_insights(df, persona)
 
-    # fallback if no AI
-    return "\n".join(summary + [""] + sections)
+        return (
+            local_output
+            + "\n\n"
+            + "🤖 AI ENHANCED INSIGHTS\n"
+            + "-" * 50
+            + "\n"
+            + ai_output
+        )
+
+    return local_output
 
 
 # =========================
@@ -220,30 +175,23 @@ def chat_with_data(df, query, persona="Analyst"):
         if os.getenv("GROQ_API_KEY"):
             client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-            # 🎭 PERSONA
             if persona == "CEO":
-                role_prompt = "You are a CEO giving strategic, high-level advice."
-
+                role_prompt = "Answer like a CEO focusing on strategy."
             elif persona == "Marketing":
-                role_prompt = "You are a marketing expert focusing on customer trends and growth."
-
+                role_prompt = "Answer like a marketing expert."
             else:
-                role_prompt = "You are a data analyst focusing on insights and patterns."
+                role_prompt = "Answer like a data analyst."
 
             prompt = f"""
 {role_prompt}
 
-Dataset summary:
+Dataset:
 {df.describe().to_string()}
 
-User question:
+Question:
 {query}
 
-Respond:
-- Clearly
-- Naturally
-- With reasoning
-- Include actionable advice
+Answer clearly with reasoning and advice.
 """
 
             response = client.chat.completions.create(
@@ -257,7 +205,7 @@ Respond:
     except:
         pass
 
-    # 🧠 FALLBACK
+    # fallback
     if "best" in query:
         return f"Best metric: {numeric.mean().idxmax()}"
 
