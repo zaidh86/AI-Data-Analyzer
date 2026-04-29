@@ -234,7 +234,11 @@ st.subheader(f"{ROBOT} AI Insights")
 
 if st.button("Generate AI Insights", type="primary"):
     with st.spinner("Analyzing data..."):
-        st.session_state.insights = get_insights(df)
+        persona = st.sidebar.selectbox(
+    "AI Persona",
+    ["Analyst", "CEO", "Marketing"]
+    )
+        st.session_state.insights = get_insights(df,persona)
 
 if st.session_state.get("insights"):
     st.markdown(st.session_state.insights)
