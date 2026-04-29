@@ -101,6 +101,10 @@ if "last_file" not in st.session_state or st.session_state.last_file != uploaded
     st.session_state.insights = None
     st.session_state.last_file = uploaded_file.name
 
+if "last_persona" not in st.session_state or st.session_state.last_persona != persona:
+    st.session_state.insights = None
+    st.session_state.last_persona = persona
+
 
 if df.empty:
     st.warning("The uploaded file is empty.")
