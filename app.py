@@ -27,11 +27,23 @@ st.set_page_config(page_title="AI Data Analyzer", page_icon=BAR_CHART, layout="w
 
 
 # =========================
-# 📂 LOAD DATA
+# 📂 LOAD DATA (UPDATED 🔥)
 # =========================
 @st.cache_data(show_spinner=False)
-def load_csv(uploaded_file):
-    return pd.read_csv(uploaded_file)
+def load_file(uploaded_file):
+    file_type = uploaded_file.name.split(".")[-1].lower()
+
+    if file_type == "csv":
+        return pd.read_csv(uploaded_file)
+
+    elif file_type == "json":
+        return pd.read_json(uploaded_file)
+
+    elif file_type == "xlsx":
+        return pd.read_excel(uploaded_file)
+
+    else:
+        raise ValueError("Unsupported file type")
 
 
 def build_missing_values_table(df):
@@ -59,25 +71,28 @@ persona = st.sidebar.selectbox(
 
 ai_mode = st.sidebar.toggle("🤖 Enable Real AI (Groq)", value=True)
 
-uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
+uploaded_file = st.sidebar.file_uploader(
+    "Upload file",
+    type=["csv", "json", "xlsx"]  # 🔥 UPDATED
+)
 
 
 # =========================
 # 🚀 MAIN APP
 # =========================
 st.title(f"{BAR_CHART} AI Data Analyzer")
-st.caption("Upload a CSV file, explore data, and generate AI-powered insights.")
+st.caption("Upload a CSV, JSON, or Excel file to explore and generate AI insights.")
 
 
 if uploaded_file is None:
-    st.info(f"{POINT_LEFT} Upload a CSV file from the sidebar to begin.")
+    st.info(f"{POINT_LEFT} Upload a file from the sidebar to begin.")
     st.stop()
 
 
 try:
-    df = load_csv(uploaded_file)
+    df = load_file(uploaded_file)  # 🔥 UPDATED
 except Exception:
-    st.error("Invalid CSV file.")
+    st.error("Invalid or unsupported file.")
     st.stop()
 
 
@@ -231,7 +246,7 @@ if st.session_state.get("insights"):
 
 
 # =========================
-# 💬 CHAT MODE (UPGRADED)
+# 💬 CHAT MODE
 # =========================
 st.divider()
 st.subheader("💬 Ask Questions About Your Data")

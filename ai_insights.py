@@ -17,17 +17,34 @@ USE_GROQ = True   # 🔁 set False if you want only local AI
 # 🤖 GROQ AI FUNCTION
 # =========================
 def get_groq_insights(df):
-    print("API KEY:", os.getenv("GROQ_API_KEY"))
     try:
-        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        api_key = os.getenv("GROQ_API_KEY")
+
+        if not api_key:
+            return "⚠️ Groq API key not found. Please check your .env file."
+
+        client = Groq(api_key=api_key)
 
         prompt = f"""
 You are a professional data analyst.
 
 Analyze this dataset and provide a clear, human-like, and insightful report.
 
-DATA SUMMARY:
-{df.describe().to_string()}
+DATA OVERVIEW:
+Rows: {df.shape[0]}
+Columns: {df.shape[1]}
+
+COLUMNS:
+{list(df.columns)}
+
+DATA TYPES:
+{df.dtypes.to_string()}
+
+MISSING VALUES:
+{df.isna().sum().to_string()}
+
+STATISTICS:
+{df.describe(include='all').to_string()}
 
 Your response must include:
 1. Executive Summary
