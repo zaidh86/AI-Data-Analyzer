@@ -202,14 +202,11 @@ def get_insights(df, persona="Analyst"):
     sections.append(f"\n🎯 Confidence Level: {confidence}")
 
     # 📦 COMBINE LOCAL
-    final_text = "\n".join(summary + [""] + sections)
-
-    # 🤖 GROQ
     if USE_GROQ:
-        ai_output = get_groq_insights(df, persona)
-        final_text += "\n\n🤖 AI ENHANCED INSIGHTS\n" + "-" * 50 + "\n" + ai_output
+        return get_groq_insights(df, persona)
 
-    return final_text
+    # fallback if no AI
+    return "\n".join(summary + [""] + sections)
 
 
 # =========================
