@@ -44,7 +44,7 @@ Style:
 """
 
         response = client.chat.completions.create(
-            model="llama-3.1-70b-versatile",
+            model="mixtral-8x7b-32768",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5
         )
@@ -224,7 +224,7 @@ Respond in a:
 """
 
             response = client.chat.completions.create(
-                model="llama-3.1-70b-versatile",
+                model="mixtral-8x7b-32768",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.6
             )
