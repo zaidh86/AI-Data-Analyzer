@@ -1,12 +1,10 @@
 import pandas as pd
 import numpy as np
-import random
 from groq import Groq
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
 
 # =========================
 # ⚙️ SETTINGS
@@ -26,12 +24,13 @@ def get_groq_insights(df, persona="Analyst"):
 
         client = Groq(api_key=api_key)
 
+        # 🎭 PERSONA STYLE
         if persona == "CEO":
-            role_prompt = "Focus on strategy, risks, and business decisions."
+            role_prompt = "Focus on strategy, risks, business growth, and decisions. Keep it sharp and impactful."
         elif persona == "Marketing":
-            role_prompt = "Focus on customer behavior, demand, and growth opportunities."
+            role_prompt = "Focus on customer behavior, product demand, engagement, and growth opportunities."
         else:
-            role_prompt = "Focus on detailed analysis, trends, and patterns."
+            role_prompt = "Focus on detailed analysis, trends, correlations, and statistical insights."
 
         prompt = f"""
 You are an expert data analyst.
@@ -41,11 +40,10 @@ You are an expert data analyst.
 Dataset:
 {df.describe(include='all').to_string()}
 
-Give:
-- Clear insights
-- Key patterns
-- Business advice
-- Keep it concise but powerful
+Respond in a clean, human-like way:
+- Keep it insightful but not overly long
+- Use natural language (not robotic)
+- Include key takeaways and actionable advice
 """
 
         response = client.chat.completions.create(
@@ -61,84 +59,94 @@ Give:
 
 
 # =========================
-# 🧠 SMART LOCAL ENGINE
+# 🧠 LOCAL SMART INSIGHTS
 # =========================
 def get_local_insights(df, persona="Analyst"):
     insights = []
-
     numeric = df.select_dtypes(include=np.number)
 
     # 🎭 Persona intro
     if persona == "CEO":
         insights.append("🧑‍💼 EXECUTIVE OVERVIEW")
-        insights.append("This dataset highlights key performance areas and potential risks.")
+        insights.append("At a high level, the dataset highlights where the business is performing well — and where attention is needed.")
 
     elif persona == "Marketing":
         insights.append("📣 MARKETING INSIGHTS")
-        insights.append("The data reveals trends in demand, customer behavior, and product performance.")
+        insights.append("This dataset tells a story about customer behavior, product performance, and growth opportunities.")
 
     else:
-        insights.append("📊 DATA ANALYSIS SUMMARY")
-        insights.append("The dataset provides useful insights into trends and performance.")
+        insights.append("📊 ANALYTICAL SUMMARY")
+        insights.append("A closer look at the dataset reveals patterns, strengths, and areas worth investigating.")
 
-    # 📊 Basic overview
-    insights.append(f"\nDataset size: {df.shape[0]} rows × {df.shape[1]} columns")
+    # 📊 Overview
+    insights.append(f"\nThe dataset contains **{df.shape[0]} rows and {df.shape[1]} columns**, providing a solid base for analysis.")
 
-    # ⚠️ Missing data
     missing = df.isna().sum().sum()
-    if missing == 0:
-        insights.append("No missing values detected — data quality is strong.")
-    else:
-        insights.append(f"{missing} missing values detected — cleaning recommended.")
 
-    # 📈 Performance logic (smarter)
+    if missing == 0:
+        insights.append("The data is clean — no missing values detected, which increases confidence in the insights.")
+    else:
+        insights.append(f"There are **{missing} missing values**, which may affect reliability and should be addressed.")
+
+    # 📈 Performance
     if not numeric.empty:
         best = numeric.mean().idxmax()
         worst = numeric.mean().idxmin()
 
-        insights.append(f"\nTop performing metric: {best}")
-        insights.append(f"Underperforming metric: {worst}")
+        if persona == "CEO":
+            insights.append(f"\nOne clear strength is **{best}**, which stands out as a key business driver.")
+            insights.append(f"On the other hand, **{worst}** appears to be lagging and may require attention.")
 
-        # variation insight
+        elif persona == "Marketing":
+            insights.append(f"\n**{best}** is performing strongly, suggesting high demand or engagement.")
+            insights.append(f"Meanwhile, **{worst}** could indicate weaker customer interest or conversion.")
+
+        else:
+            insights.append(f"\nThe metric **{best}** shows the strongest performance.")
+            insights.append(f"In contrast, **{worst}** appears to be underperforming.")
+
         variability = numeric.std().mean()
 
         if variability > 1000:
-            insights.append("There is high variability in the data — performance is inconsistent.")
+            insights.append("Performance varies significantly across the dataset, indicating inconsistency.")
         else:
-            insights.append("Data shows relatively stable performance across metrics.")
+            insights.append("Performance appears relatively stable with minimal fluctuations.")
 
-    # 🔥 correlation insight
+    # 🔥 Relationships
     if len(numeric.columns) > 1:
         corr = numeric.corr().abs()
-        strong_pairs = []
+        strong = []
 
         for i in range(len(corr.columns)):
             for j in range(i + 1, len(corr.columns)):
                 if corr.iloc[i, j] > 0.7:
-                    strong_pairs.append((corr.columns[i], corr.columns[j]))
+                    strong.append((corr.columns[i], corr.columns[j]))
 
-        if strong_pairs:
-            insights.append("\nStrong relationships detected between variables:")
-            for a, b in strong_pairs:
-                insights.append(f"- {a} & {b}")
+        if strong:
+            insights.append("\nSome variables show strong relationships:")
+            for a, b in strong:
+                insights.append(f"• {a} ↔ {b}")
 
-    # 💡 advice (persona-based)
-    insights.append("\n💡 Recommendations:")
+    # 💡 Recommendations
+    insights.append("\n💡 What this means:")
 
     if persona == "CEO":
-        insights.append("- Focus on improving weaker metrics.")
-        insights.append("- Reduce performance variability.")
-        insights.append("- Scale high-performing areas.")
+        insights.append("• Double down on high-performing areas — they drive growth.")
+        insights.append("• Address weaker areas before they impact overall performance.")
+        insights.append("• Reducing variability could improve stability.")
+        insights.append("• Use insights to guide strategic decisions.")
 
     elif persona == "Marketing":
-        insights.append("- Focus on high-demand products.")
-        insights.append("- Improve customer satisfaction.")
-        insights.append("- Target top-performing segments.")
+        insights.append("• Focus on high-demand products or segments.")
+        insights.append("• Improve weaker engagement areas.")
+        insights.append("• Refine campaigns based on trends.")
+        insights.append("• Use insights to drive conversions.")
 
     else:
-        insights.append("- Investigate anomalies.")
-        insights.append("- Optimize strong variables.")
-        insights.append("- Clean missing data if present.")
+        insights.append("• Investigate anomalies or unexpected patterns.")
+        insights.append("• Optimize strong-performing variables.")
+        insights.append("• Clean data where necessary.")
+        insights.append("• Explore correlations for deeper insights.")
 
     return "\n".join(insights)
 
@@ -176,11 +184,11 @@ def chat_with_data(df, query, persona="Analyst"):
             client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
             if persona == "CEO":
-                role_prompt = "Answer like a CEO focusing on strategy."
+                role_prompt = "Answer like a CEO focusing on strategy and decisions."
             elif persona == "Marketing":
-                role_prompt = "Answer like a marketing expert."
+                role_prompt = "Answer like a marketing expert focusing on growth and engagement."
             else:
-                role_prompt = "Answer like a data analyst."
+                role_prompt = "Answer like a data analyst focusing on insights."
 
             prompt = f"""
 {role_prompt}
@@ -218,4 +226,4 @@ Answer clearly with reasoning and advice.
     elif "rows" in query:
         return f"{df.shape[0]} rows and {df.shape[1]} columns"
 
-    return "Ask about best/worst/missing/correlation."
+    return "Try asking about performance, missing data, or trends."
