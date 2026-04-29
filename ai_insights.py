@@ -177,6 +177,29 @@ def get_insights(df, persona="Analyst"):
 # =========================
 def chat_with_data(df, query, persona="Analyst"):
     query = query.lower()
+    # =========================
+    # 👋 BASIC CONVERSATION HANDLING
+    # =========================
+    greetings = ["hi", "hello", "hey", "yo", "sup"]
+    farewells = ["bye", "goodbye", "see you"]
+    thanks = ["thanks", "thank you"]
+
+    query_clean = query.strip()
+
+    if any(word in query_clean for word in greetings):
+        if persona == "CEO":
+            return "Hello. Let’s focus on what matters — what would you like to understand from the data?"
+        elif persona == "Marketing":
+            return "Hey! Ready to explore some insights and trends?"
+        else:
+            return "Hey! 👋 What would you like to explore in your dataset?"
+
+    if any(word in query_clean for word in farewells):
+        return "Got it. Feel free to come back anytime if you need more insights!"
+
+    if any(word in query_clean for word in thanks):
+        return "You're welcome! Let me know if you want to dig deeper into the data."
+    
     numeric = df.select_dtypes(include='number')
 
     try:
