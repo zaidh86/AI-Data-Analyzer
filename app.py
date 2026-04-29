@@ -27,7 +27,7 @@ st.set_page_config(page_title="AI Data Analyzer", page_icon=BAR_CHART, layout="w
 
 
 # =========================
-# 📂 LOAD DATA (UPDATED 🔥)
+# 📂 LOAD DATA
 # =========================
 @st.cache_data(show_spinner=False)
 def load_file(uploaded_file):
@@ -35,13 +35,10 @@ def load_file(uploaded_file):
 
     if file_type == "csv":
         return pd.read_csv(uploaded_file)
-
     elif file_type == "json":
         return pd.read_json(uploaded_file)
-
     elif file_type == "xlsx":
         return pd.read_excel(uploaded_file)
-
     else:
         raise ValueError("Unsupported file type")
 
@@ -69,11 +66,9 @@ persona = st.sidebar.selectbox(
     ["Analyst", "CEO", "Marketing"]
 )
 
-ai_mode = st.sidebar.toggle("🤖 Enable Real AI (Groq)", value=True)
-
 uploaded_file = st.sidebar.file_uploader(
     "Upload file",
-    type=["csv", "json", "xlsx"]  # 🔥 UPDATED
+    type=["csv", "json", "xlsx"]
 )
 
 
@@ -81,7 +76,7 @@ uploaded_file = st.sidebar.file_uploader(
 # 🚀 MAIN APP
 # =========================
 st.title(f"{BAR_CHART} AI Data Analyzer")
-st.caption("Upload a CSV, JSON, or Excel file to explore and generate AI insights.")
+st.caption("Upload a file to explore and get AI-powered insights instantly.")
 
 
 if uploaded_file is None:
@@ -90,41 +85,49 @@ if uploaded_file is None:
 
 
 try:
-    df = load_file(uploaded_file)  # 🔥 UPDATED
+    df = load_file(uploaded_file)
 except Exception:
     st.error("Invalid or unsupported file.")
     st.stop()
 
 
-# Reset insights if new file
-if "last_file" not in st.session_state or st.session_state.last_file != uploaded_file.name:
+# =========================
+# 🔁 SESSION STATE
+# =========================
+if "last_file" not in st.session_state:
+    st.session_state.last_file = None
+
+if "last_persona" not in st.session_state:
+    st.session_state.last_persona = None
+
+if "insights" not in st.session_state:
     st.session_state.insights = None
+
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+
+# =========================
+# 🔄 AUTO-GENERATE INSIGHTS
+# =========================
+if (
+    st.session_state.last_file != uploaded_file.name
+    or st.session_state.last_persona != persona
+):
+    with st.spinner("Generating insights..."):
+        st.session_state.insights = get_insights(df, persona)
+
     st.session_state.last_file = uploaded_file.name
-
-if "last_persona" not in st.session_state or st.session_state.last_persona != persona:
-    st.session_state.insights = None
     st.session_state.last_persona = persona
-
-
-if df.empty:
-    st.warning("The uploaded file is empty.")
-    st.stop()
-
-
-# Handle large dataset
-if df.shape[0] > 100000:
-    df = df.sample(100000)
-    st.warning("Dataset too large. Showing a sample of 100,000 rows.")
-
-
-numeric_columns = df.select_dtypes(include="number").columns.tolist()
-
-st.success(f"{CHECK} File uploaded successfully.")
 
 
 # =========================
 # 📊 METRICS
 # =========================
+numeric_columns = df.select_dtypes(include="number").columns.tolist()
+
+st.success(f"{CHECK} File uploaded successfully.")
+
 metric_cols = st.columns(4)
 metric_cols[0].metric("Rows", f"{df.shape[0]:,}")
 metric_cols[1].metric("Columns", f"{df.shape[1]:,}")
@@ -147,26 +150,6 @@ with stats_col:
 
 
 # =========================
-# 🚨 ALERT SYSTEM
-# =========================
-missing_percent = (df.isna().sum().sum() / (df.shape[0] * df.shape[1])) * 100
-
-alerts = []
-
-if missing_percent > 30:
-    alerts.append("⚠️ Critical: High missing data detected")
-
-if df.shape[0] < 50:
-    alerts.append("⚠️ Dataset is very small — results may be unreliable")
-
-if alerts:
-    st.divider()
-    st.subheader("🚨 Alerts")
-    for alert in alerts:
-        st.warning(alert)
-
-
-# =========================
 # 🧩 MISSING VALUES
 # =========================
 st.divider()
@@ -178,7 +161,7 @@ st.dataframe(build_missing_values_table(df), use_container_width=True, hide_inde
 # 📈 VISUALIZATION
 # =========================
 st.divider()
-st.subheader(f"{TRENDING_UP} Interactive Visualization")
+st.subheader(f"{TRENDING_UP} Visualization")
 
 if numeric_columns:
     chart_type = st.selectbox("Chart Type", ["Histogram", "Box Plot", "Scatter Plot"])
@@ -186,11 +169,7 @@ if numeric_columns:
     if chart_type in {"Histogram", "Box Plot"}:
         col = st.selectbox("Select Column", numeric_columns)
 
-        if chart_type == "Histogram":
-            fig = px.histogram(df, x=col, nbins=30)
-        else:
-            fig = px.box(df, y=col)
-
+        fig = px.histogram(df, x=col) if chart_type == "Histogram" else px.box(df, y=col)
         st.plotly_chart(fig, use_container_width=True)
 
     elif len(numeric_columns) >= 2:
@@ -199,51 +178,18 @@ if numeric_columns:
 
         fig = px.scatter(df, x=x, y=y)
         st.plotly_chart(fig, use_container_width=True)
-else:
-    st.warning("No numeric columns found.")
 
 
 # =========================
-# 🔥 CORRELATION
-# =========================
-st.divider()
-st.subheader(f"{FIRE} Correlation Heatmap")
-
-if len(numeric_columns) > 1:
-    corr = df[numeric_columns].corr()
-
-    fig = ff.create_annotated_heatmap(
-        z=corr.values,
-        x=list(corr.columns),
-        y=list(corr.index),
-        annotation_text=corr.round(2).values,
-        colorscale="Blues",
-        showscale=True,
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.warning("Not enough numeric columns.")
-
-
-# =========================
-# 🤖 AI INSIGHTS
+# 🤖 AI INSIGHTS (AUTO)
 # =========================
 st.divider()
 st.subheader(f"{ROBOT} AI Insights")
 
-if st.button("Generate AI Insights", type="primary"):
-    with st.spinner("Analyzing data..."):
-        persona = st.sidebar.selectbox(
-    "AI Persona",
-    ["Analyst", "CEO", "Marketing"]
-    )
-        st.session_state.insights = get_insights(df,persona)
-
-if st.session_state.get("insights"):
+if st.session_state.insights:
     st.markdown(st.session_state.insights)
 
-    report = generate_report(df, st.session_state.insights,persona)
+    report = generate_report(df, st.session_state.insights, persona)
 
     st.download_button(
         label="📄 Download PDF Report",
@@ -254,15 +200,32 @@ if st.session_state.get("insights"):
 
 
 # =========================
-# 💬 CHAT MODE
+# 💬 CHAT WITH MEMORY
 # =========================
 st.divider()
-st.subheader("💬 Ask Questions About Your Data")
+st.subheader("💬 Chat with your data")
 
-query = st.text_input("Ask something...")
+# Display chat history
+for msg in st.session_state.chat_history:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-if query:
+# Input
+user_input = st.chat_input("Ask something about your data...")
+
+if user_input:
+    # Save user message
+    st.session_state.chat_history.append({"role": "user", "content": user_input})
+
+    with st.chat_message("user"):
+        st.markdown(user_input)
+
+    # Generate response
     with st.spinner("Thinking..."):
-        response = chat_with_data(df, query)
+        response = chat_with_data(df, user_input, persona)
 
-    st.success(response)
+    # Save AI response
+    st.session_state.chat_history.append({"role": "assistant", "content": response})
+
+    with st.chat_message("assistant"):
+        st.markdown(response)
