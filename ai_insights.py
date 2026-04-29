@@ -17,7 +17,7 @@ USE_GROQ = True
 # =========================
 # 🤖 GROQ AI FUNCTION
 # =========================
-def get_groq_insights(df, persona="Analyst" or "CEO" or "Marketing"):
+def get_groq_insights(df, persona="Analyst"):
     try:
         api_key = os.getenv("GROQ_API_KEY")
 
