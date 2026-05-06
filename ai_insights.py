@@ -175,78 +175,189 @@ def get_insights(df, persona="Analyst"):
 # =========================
 # 💬 CHAT MODE
 # =========================
-def chat_with_data(df, query, persona="Analyst"):
-    query = query.lower()
+def chat_with_data(df, query, persona="Analyst", history=None):
+    import random
+    import os
+    from groq import Groq
+
+    query_clean = query.lower().strip()
+    numeric = df.select_dtypes(include='number')
+
     # =========================
-    # 👋 BASIC CONVERSATION HANDLING
+    # 🧠 INTENT DETECTION
     # =========================
     greetings = ["hi", "hello", "hey", "yo", "sup"]
     farewells = ["bye", "goodbye", "see you"]
     thanks = ["thanks", "thank you"]
 
-    query_clean = query.strip()
+    advice_words = ["should", "recommend", "advice", "improve", "suggest"]
+    explain_words = ["why", "explain", "reason"]
+    trend_words = ["trend", "growth", "increase", "decrease"]
+    risk_words = ["risk", "problem", "issue", "danger"]
 
+    # =========================
+    # 👋 GREETINGS
+    # =========================
     if any(word in query_clean for word in greetings):
         if persona == "CEO":
-            return "Hello. Let’s focus on what matters — what would you like to understand from the data?"
+            return "Hello. Ready to review strategic insights and performance?"
         elif persona == "Marketing":
-            return "Hey! Ready to explore some insights and trends?"
+            return "Hey! Ready to explore customer trends and growth opportunities? 🚀"
         else:
             return "Hey! 👋 What would you like to explore in your dataset?"
 
     if any(word in query_clean for word in farewells):
-        return "Got it. Feel free to come back anytime if you need more insights!"
+        return "See you later 👋 Feel free to return anytime for more insights."
 
     if any(word in query_clean for word in thanks):
-        return "You're welcome! Let me know if you want to dig deeper into the data."
-    
-    numeric = df.select_dtypes(include='number')
+        return "You're welcome 😄 Let me know if you'd like deeper analysis."
 
+    # =========================
+    # 🎯 DETECT INTENT
+    # =========================
+    intent = "general"
+
+    if any(word in query_clean for word in advice_words):
+        intent = "advice"
+
+    elif any(word in query_clean for word in explain_words):
+        intent = "explain"
+
+    elif any(word in query_clean for word in trend_words):
+        intent = "trend"
+
+    elif any(word in query_clean for word in risk_words):
+        intent = "risk"
+
+    # =========================
+    # 🧠 MEMORY
+    # =========================
+    conversation = ""
+
+    if history:
+        for msg in history[-5:]:
+            role = msg["role"]
+            content = msg["content"]
+            conversation += f"{role}: {content}\n"
+
+    # =========================
+    # 🎭 PERSONA STYLE
+    # =========================
+    if persona == "CEO":
+        role_prompt = (
+            "Respond like a strategic business executive focused on "
+            "growth, performance, and decisions."
+        )
+
+    elif persona == "Marketing":
+        role_prompt = (
+            "Respond like a marketing strategist focused on "
+            "customer behavior, engagement, and growth."
+        )
+
+    else:
+        role_prompt = (
+            "Respond like a professional data analyst focused on "
+            "insights and patterns."
+        )
+
+    # =========================
+    # 🎯 INTENT PROMPTS
+    # =========================
+    if intent == "advice":
+        intent_prompt = (
+            "Provide actionable recommendations and practical next steps."
+        )
+
+    elif intent == "explain":
+        intent_prompt = (
+            "Explain clearly in a simple and human way."
+        )
+
+    elif intent == "trend":
+        intent_prompt = (
+            "Focus on patterns, changes over time, and trends."
+        )
+
+    elif intent == "risk":
+        intent_prompt = (
+            "Focus on risks, weaknesses, anomalies, and concerns."
+        )
+
+    else:
+        intent_prompt = (
+            "Answer naturally with useful insights."
+        )
+
+    # =========================
+    # 🤖 AI RESPONSE
+    # =========================
     try:
         if os.getenv("GROQ_API_KEY"):
             client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-            if persona == "CEO":
-                role_prompt = "Answer like a CEO focusing on strategy and decisions."
-            elif persona == "Marketing":
-                role_prompt = "Answer like a marketing expert focusing on growth and engagement."
-            else:
-                role_prompt = "Answer like a data analyst focusing on insights."
-
             prompt = f"""
 {role_prompt}
 
-Dataset:
-{df.describe().to_string()}
+{intent_prompt}
 
-Question:
+Previous conversation:
+{conversation}
+
+Dataset summary:
+{df.describe(include='all').to_string()}
+
+User question:
 {query}
 
-Answer clearly with reasoning and advice.
+Instructions:
+- Be conversational
+- Sound natural and intelligent
+- Keep responses concise but insightful
+- Include reasoning
 """
 
             response = client.chat.completions.create(
                 model="llama-3.1-8b-instant",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.6
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7
             )
 
-            return response.choices[0].message.content
+            ai_response = response.choices[0].message.content
 
-    except:
-        pass
+            # =========================
+            # 🔥 FOLLOW-UP QUESTIONS
+            # =========================
+            followups = [
+                "Would you like a deeper breakdown of this insight?",
+                "Want me to identify patterns or anomalies?",
+                "Should I analyze trends over time?",
+                "Do you want recommendations based on this data?",
+                "Want me to explain this in simpler terms?",
+                "Should I highlight potential risks or opportunities?",
+                "Want a business-focused interpretation of these results?",
+                "Would you like a quick executive summary?"
+            ]
 
-    # fallback
-    if "best" in query:
-        return f"Best metric: {numeric.mean().idxmax()}"
+            ai_response += "\n\n👉 " + random.choice(followups)
 
-    elif "worst" in query:
-        return f"Worst metric: {numeric.mean().idxmin()}"
+            return ai_response
 
-    elif "missing" in query:
+    except Exception as e:
+        return f"⚠️ AI Error: {e}"
+
+    # =========================
+    # 🔙 FALLBACK
+    # =========================
+    if "best" in query_clean:
+        return f"The strongest metric appears to be '{numeric.mean().idxmax()}'."
+
+    elif "worst" in query_clean:
+        return f"The weakest metric appears to be '{numeric.mean().idxmin()}'."
+
+    elif "missing" in query_clean:
         return df.isna().sum().to_string()
 
-    elif "rows" in query:
-        return f"{df.shape[0]} rows and {df.shape[1]} columns"
-
-    return "Try asking about performance, missing data, or trends."
+    return "I can help analyze trends, risks, recommendations, and performance insights."

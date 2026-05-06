@@ -202,30 +202,71 @@ if st.session_state.insights:
 # =========================
 # 💬 CHAT WITH MEMORY
 # =========================
+import time
+
 st.divider()
 st.subheader("💬 Chat with your data")
 
-# Display chat history
+# Display previous messages
 for msg in st.session_state.chat_history:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Input
+# Chat input
 user_input = st.chat_input("Ask something about your data...")
 
 if user_input:
-    # Save user message
-    st.session_state.chat_history.append({"role": "user", "content": user_input})
 
+    # Save user message
+    st.session_state.chat_history.append({
+        "role": "user",
+        "content": user_input
+    })
+
+    # Display user message
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # Generate response
+    # Generate AI response
     with st.spinner("Thinking..."):
-        response = chat_with_data(df, user_input, persona)
+        response = chat_with_data(
+            df,
+            user_input,
+            persona,
+            st.session_state.chat_history
+        )
+
+    # =========================
+    # 🤖 STREAMING EFFECT
+    # =========================
+    with st.chat_message("assistant"):
+
+        message_placeholder = st.empty()
+
+        full_response = ""
+
+        words = response.split()
+
+        for word in words:
+            full_response += word + " "
+
+            time.sleep(0.02)
+
+            message_placeholder.markdown(
+                full_response + "▌"
+            )
+
+        message_placeholder.markdown(full_response)
 
     # Save AI response
-    st.session_state.chat_history.append({"role": "assistant", "content": response})
+    st.session_state.chat_history.append({
+        "role": "assistant",
+        "content": full_response
+    })
 
-    with st.chat_message("assistant"):
-        st.markdown(response)
+# =========================
+# 🗑️ CLEAR CHAT
+# =========================
+if st.button("🗑️ Clear Chat"):
+    st.session_state.chat_history = []
+    st.rerun()
