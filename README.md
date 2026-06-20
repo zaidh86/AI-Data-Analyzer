@@ -16,6 +16,38 @@ An AI-powered data analysis web application built using Python and Streamlit tha
 
 ---
 
+## 📸 Screenshots
+
+### 🏠 Home Page
+
+![Home Page](screenshots/home.png)
+
+---
+
+### 📊 Executive Dashboard
+
+![Dashboard](screenshots/dashboard.png)
+
+---
+
+### 📈 Data Visualization
+
+![Visualization](screenshots/visualization.png)
+
+---
+
+### 🤖 AI-Powered Insights
+
+![AI Insights](screenshots/ai_insights#1.png)
+
+---
+
+### 💬 Chat With Your Data
+
+![Chat](screenshots/chat.png)
+
+---
+
 ## 🛠️ Tech Stack
 
 ### Frontend
