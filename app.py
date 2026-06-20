@@ -261,7 +261,7 @@ with preview_col:
 
     st.dataframe(
         df.head(20),
-        use_container_width=True
+        width = 'stretch'
     )
 
 with stats_col:
@@ -270,7 +270,7 @@ with stats_col:
 
     st.dataframe(
         df.describe(include="all").transpose(),
-        use_container_width=True
+        width = 'stretch'
     )
 
 
@@ -283,7 +283,7 @@ st.subheader(f"{PUZZLE} Missing Values")
 
 st.dataframe(
     build_missing_values_table(df),
-    use_container_width=True,
+    width = 'stretch',
     hide_index=True
 )
 
@@ -325,7 +325,7 @@ if numeric_columns:
 
         st.plotly_chart(
             fig,
-            use_container_width=True
+            width = 'stretch'
         )
 
     elif len(numeric_columns) >= 2:
@@ -348,7 +348,7 @@ if numeric_columns:
 
         st.plotly_chart(
             fig,
-            use_container_width=True
+            width = 'stretch'
         )
 
 
