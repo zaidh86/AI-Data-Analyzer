@@ -7,6 +7,26 @@ import time
 from ai_insights import get_insights, chat_with_data
 from report_generator import generate_report
 
+from data_cleaner import (
+    detect_missing_values,
+    detect_duplicates,
+    detect_dtype_issues,
+    detect_outliers,
+    calculate_quality_score,
+    clean_dataset
+)
+
+from cleaner_visuals import (
+    plot_missing_values,
+    plot_outlier_distribution,
+    plot_quality_score
+)
+
+from ai_cleaner import (
+    generate_cleaning_summary,
+    generate_cleaning_recommendations
+)
+
 from utils import (
     calculate_health_score,
     get_confidence_level,
@@ -160,6 +180,22 @@ priority_insights = generate_priority_insights(df)
 
 suggested_questions = generate_suggested_questions(dataset_type)
 
+# =========================
+# 🧹 AI CLEANER INTELLIGENCE
+# =========================
+quality_score = calculate_quality_score(df)
+
+duplicate_count = detect_duplicates(df)
+
+dtype_issues = detect_dtype_issues(df)
+
+outlier_report = detect_outliers(df)
+
+cleaning_summary = generate_cleaning_summary(df)
+
+cleaning_recommendations = generate_cleaning_recommendations(df)
+
+cleaned_df = clean_dataset(df)
 
 # =========================
 # 🔄 AUTO GENERATE INSIGHTS
@@ -287,6 +323,121 @@ st.dataframe(
     hide_index=True
 )
 
+# =========================
+# 🧹 AI DATA CLEANER
+# =========================
+st.divider()
+
+st.subheader("🧹 AI Data Cleaner")
+
+# -------------------------
+# Quality Score
+# -------------------------
+quality_fig = plot_quality_score(
+    quality_score
+)
+
+st.plotly_chart(
+    quality_fig,
+    width="stretch"
+)
+
+# -------------------------
+# Cleaning Summary
+# -------------------------
+st.markdown("### 📋 Cleaning Summary")
+
+for item in cleaning_summary:
+    st.info(item)
+
+# -------------------------
+# Recommendations
+# -------------------------
+st.markdown("### 💡 Recommendations")
+
+for rec in cleaning_recommendations:
+    st.success(rec)
+
+# -------------------------
+# Duplicate Rows
+# -------------------------
+st.metric(
+    "Duplicate Rows",
+    duplicate_count
+)
+
+# -------------------------
+# Data Type Issues
+# -------------------------
+if dtype_issues:
+
+    st.warning(
+        "⚠️ Data Type Issues Detected"
+    )
+
+    for issue in dtype_issues:
+        st.write(issue)
+
+else:
+
+    st.success(
+        "✅ No Data Type Issues Found"
+    )
+
+# -------------------------
+# Missing Values Chart
+# -------------------------
+missing_fig = plot_missing_values(df)
+
+if missing_fig:
+
+    st.plotly_chart(
+        missing_fig,
+        width="stretch"
+    )
+
+# -------------------------
+# Outlier Analysis
+# -------------------------
+numeric_cols = (
+    df.select_dtypes(
+        include="number"
+    )
+    .columns
+    .tolist()
+)
+
+if numeric_cols:
+
+    st.markdown(
+        "### ⚠️ Outlier Analysis"
+    )
+
+    outlier_col = st.selectbox(
+        "Select Column for Outlier Detection",
+        numeric_cols,
+        key="outlier_column"
+    )
+
+    outlier_fig = plot_outlier_distribution(
+        df,
+        outlier_col
+    )
+
+    st.plotly_chart(
+        outlier_fig,
+        width="stretch"
+    )
+
+# -------------------------
+# Download Cleaned Dataset
+# -------------------------
+st.download_button(
+    label="📥 Download Cleaned Dataset",
+    data=cleaned_df.to_csv(index=False),
+    file_name="cleaned_dataset.csv",
+    mime="text/csv"
+)
 
 # =========================
 # 📈 VISUALIZATION
